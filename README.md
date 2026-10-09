@@ -5,10 +5,11 @@ Mirror a local directory to a CodePen 2.0 Pen. No dependencies, Node ≥ 22.
 ```sh
 cdpn push    # push local files (creates a Pen + writes CODEPEN_ID to .env if unset)
 cdpn pull    # download the Pen's files (never deletes local files)
+cdpn pull <PEN>  # connect this directory to PEN, then pull it
 cdpn sync    # push, then watch and push on every change
 ```
 
-`--force` skips the version check and overwrites edits made in the CodePen editor.
+`--force` skips the version check and overwrites edits made in the CodePen editor. With `pull <PEN>` it allows switching away from an already connected Pen.
 
 ## Setup
 
@@ -31,6 +32,8 @@ CODEPEN_ID=…      # written here on first push
 
 ## Behaviour
 
+- **pull `<PEN>`** takes a Pen id (`01a1…-…` or Classic `PwWmgeN`) or any URL that contains one: the editor URL, a public `/pen/`, `/full/`, `/details/` or embed URL, or a `?template=` URL. It writes the id to `CODEPEN_ID`, so later commands use it. The API only reaches your own Pens, so fork other people's on codepen.io first. Classic Pens can be pulled but not pushed.
+- **pull** without `<PEN>` and without `CODEPEN_ID` fails.
 - **push** mirrors local → remote: changed and new files are uploaded, and remote files missing locally are deleted. It refuses to push an empty directory.
 - After every push, compiler patches (e.g. `.codepen/pen.config.json`, `tsconfig.json`) are written back locally.
 - Empty files are skipped because the API rejects empty content.
