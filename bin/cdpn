@@ -8,7 +8,7 @@ import { serial, watch } from "../lib/watch.js";
 const USAGE = `cdpn — mirror a local directory to a CodePen 2.0 Pen
 
   cdpn push [--force]   push local files (creates a Pen if CODEPEN_ID is unset)
-  cdpn pull             download the Pen's files
+  cdpn pull [PEN]       download the Pen's files; PEN (id or URL) connects to it
   cdpn sync [--force]   push, then watch and push on every change
 
 env (.env):
@@ -16,11 +16,14 @@ env (.env):
   CODEPEN_ID        Pen id, written automatically on first push
   CODEPEN_DIR       directory to mirror (default: .)
 
---force  skip the version check and overwrite remote edits`;
+--force  push/sync: skip the version check and overwrite remote edits
+         pull: switch to PEN although another Pen is connected`;
 
 function explain(error) {
   if (error instanceof ApiError && error.code === "CONFLICT")
     return "the Pen changed remotely (editor?). run `cdpn pull` first, or push with --force";
+  if (error instanceof ApiError && error.code === "NOT_FOUND")
+    return "Pen not found. The API only reaches your own Pens (fork someone else's on codepen.io first)";
   return error.message;
 }
 
@@ -36,7 +39,7 @@ async function sync(p, options) {
 
 const commands = {
   push: (p, options) => pen.push(p, options),
-  pull: (p) => pen.pull(p),
+  pull: (p, options) => pen.pull(p, options),
   sync,
 };
 
@@ -52,7 +55,7 @@ if (!command || values.help) {
 
 try {
   env.load();
-  await command(pen.open(), { force: values.force });
+  await command(pen.open(), { force: values.force, penRef: positionals[1] });
 } catch (error) {
   console.error(`✗ ${explain(error)}`);
   process.exit(1);
