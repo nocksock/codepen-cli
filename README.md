@@ -28,7 +28,11 @@ CODEPEN_DIR=pen   # what to mirror (default: .)
 CODEPEN_ID=…      # written here on first push
 ```
 
-`.envrc` puts `bin/` on `PATH`. Elsewhere, run `npm link` once.
+`.envrc` puts `bin/` on `PATH`. To use `cdpn` everywhere, install it globally once. It's a symlink, so edits take effect immediately:
+
+```sh
+pnpm add -g ~/sandboxes/codepen-api-prototyping   # remove: pnpm remove -g cdpn
+```
 
 ## Behaviour
 
