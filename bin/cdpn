@@ -1,0 +1,59 @@
+#!/usr/bin/env node
+import { parseArgs } from "node:util";
+import * as env from "../lib/env.js";
+import * as pen from "../lib/pen.js";
+import { ApiError } from "../lib/api.js";
+import { serial, watch } from "../lib/watch.js";
+
+const USAGE = `cdpn — mirror a local directory to a CodePen 2.0 Pen
+
+  cdpn push [--force]   push local files (creates a Pen if CODEPEN_ID is unset)
+  cdpn pull             download the Pen's files
+  cdpn sync [--force]   push, then watch and push on every change
+
+env (.env):
+  CODEPEN_API_KEY   key or 1Password ref, e.g. "op://Private/CodePen/API Key"
+  CODEPEN_ID        Pen id, written automatically on first push
+  CODEPEN_DIR       directory to mirror (default: .)
+
+--force  skip the version check and overwrite remote edits`;
+
+function explain(error) {
+  if (error instanceof ApiError && error.code === "CONFLICT")
+    return "the Pen changed remotely (editor?). run `cdpn pull` first, or push with --force";
+  return error.message;
+}
+
+async function sync(p, options) {
+  const push = serial(() =>
+    pen.push(p, options).catch((error) => console.error(`✗ ${explain(error)}`)),
+  );
+  watch(p.dir, push);
+  await push();
+  if (p.urls) console.log(`editor  ${p.urls.editor}\npreview ${p.urls.preview}`);
+  console.log(`watching ${p.dir}`);
+}
+
+const commands = {
+  push: (p, options) => pen.push(p, options),
+  pull: (p) => pen.pull(p),
+  sync,
+};
+
+const { positionals, values } = parseArgs({
+  allowPositionals: true,
+  options: { force: { type: "boolean" }, help: { type: "boolean", short: "h" } },
+});
+const command = commands[positionals[0]];
+if (!command || values.help) {
+  console.log(USAGE);
+  process.exit(command || values.help ? 0 : 1);
+}
+
+try {
+  env.load();
+  await command(pen.open(), { force: values.force });
+} catch (error) {
+  console.error(`✗ ${explain(error)}`);
+  process.exit(1);
+}
