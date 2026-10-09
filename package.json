@@ -1,0 +1,8 @@
+{
+  "name": "cdpn",
+  "version": "0.1.0",
+  "description": "Mirror a local directory to a CodePen 2.0 Pen",
+  "type": "module",
+  "bin": { "cdpn": "bin/cdpn" },
+  "engines": { "node": ">=22" }
+}
