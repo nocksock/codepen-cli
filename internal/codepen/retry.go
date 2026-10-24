@@ -30,7 +30,7 @@ func retryable(method string, status int, err error) bool {
 func (c *Client) delay(resp *http.Response, attempt int) time.Duration {
 	if resp != nil {
 		if seconds, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && seconds >= 0 {
-			return min(time.Duration(seconds)*time.Second, maxRetryAfter)
+			return time.Duration(min(seconds, int(maxRetryAfter/time.Second))) * time.Second
 		}
 	}
 	return c.backoff << attempt
