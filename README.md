@@ -3,15 +3,24 @@
 Mirror a local directory to a CodePen 2.0 Pen. No dependencies, Node ≥ 22.
 
 ```sh
-cdpn push    # push local files (creates a Pen + writes CODEPEN_ID to .env if unset)
+cdpn init [PEN]  # set up .env, .envrc and .gitignore here; with PEN, pull it too
+cdpn push    # push local files (creates a Pen + writes CODEPEN_ID to .env.local if unset)
 cdpn pull    # download the Pen's files (never deletes local files)
 cdpn pull <PEN>  # connect this directory to PEN, then pull it
 cdpn sync    # push, then watch and push on every change
+cdpn info    # Pen details, build status, version count, local changes waiting to push
+cdpn open [editor|preview|live]  # open the Pen in the browser (default: editor)
 ```
 
 `--force` skips the version check and overwrites edits made in the CodePen editor. With `pull <PEN>` it allows switching away from an already connected Pen.
 
 ## Setup
+
+In any folder, run `cdpn init`. It never overwrites anything:
+
+- **`.env`** is created with `CODEPEN_API_KEY="op://Private/CodePen/API Key"` (or the value from `--key`). An existing `.env`, such as a 1Password mount, is left alone.
+- **`.envrc`** and **`.gitignore`** only gain the lines they're missing.
+- **`direnv allow`** runs if direnv is installed.
 
 Both files are loaded by direnv via `.envrc`, and by `cdpn` itself as a fallback. `.env.local` wins.
 
@@ -45,3 +54,11 @@ pnpm add -g ~/sandboxes/codepen-api-prototyping   # remove: pnpm remove -g cdpn
 - In `sync`, a remote edit made while you're watching causes a 409. Run `cdpn pull` (or use `--force`).
 
 See [API_OVERVIEW.md](API_OVERVIEW.md) for what else the API can do.
+
+## Tests
+
+```sh
+npm test   # or: pnpm test
+```
+
+The CLI tests run `bin/cdpn` as a separate process in temp folders, against a fake CodePen API (`test/support/fake-api.js`). That takes about 3 seconds and needs no network or API key. The `CODEPEN_API_URL` and `CODEPEN_POLL_MS` env vars point cdpn at the fake API and speed up build polling. Stand-ins for `xdg-open`/`open`/`direnv` record their calls instead of opening a browser or changing your direnv allow list.
