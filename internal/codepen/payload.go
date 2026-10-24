@@ -41,24 +41,24 @@ func encode(field string, v any, expected string, uploads []Upload) (*payload, e
 	var buf bytes.Buffer
 	form := multipart.NewWriter(&buf)
 	if err := form.WriteField(field, string(data)); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("encoding %s: %w", field, err)
 	}
 	if expected != "" {
 		if err := form.WriteField("expected_version_id", expected); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("encoding %s: %w", field, err)
 		}
 	}
 	for _, upload := range uploads {
 		part, err := form.CreateFormFile(upload.Path, path.Base(upload.Path))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("encoding %s: %w", field, err)
 		}
 		if _, err := part.Write(upload.Data); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("encoding %s: %w", field, err)
 		}
 	}
 	if err := form.Close(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("encoding %s: %w", field, err)
 	}
 	return &payload{contentType: form.FormDataContentType(), data: buf.Bytes()}, nil
 }
