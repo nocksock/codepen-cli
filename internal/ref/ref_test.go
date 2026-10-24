@@ -25,6 +25,8 @@ func TestParse(t *testing.T) {
 		{name: "cdpn.io grid", input: "https://cdpn.io/username/fullcpgrid/PwWmgeN/23e786f57891fa2384306566d37b3f34/", expected: "PwWmgeN"},
 		{name: "without scheme", input: "codepen.io/nocksock/pen/PwWmgeN", expected: "PwWmgeN"},
 		{name: "template uuid", input: "https://codepen.io/pen/?template=" + uuid, expected: uuid},
+		{name: "uppercase uuid", input: strings.ToUpper(uuid), expected: strings.ToUpper(uuid)},
+		{name: "template wins over path id", input: "https://codepen.io/u/pen/PwWmgeN?template=" + uuid, expected: uuid},
 		{name: "template classic", input: "https://codepen.io/pen?template=PwWmgeN", expected: "PwWmgeN"},
 	}
 	for _, tt := range tests {
@@ -43,12 +45,24 @@ func TestParse(t *testing.T) {
 
 func TestParse_Rejects(t *testing.T) {
 	t.Parallel()
-	for _, input := range []string{"", "https://codepen.io/nocksock", "https://3f4d.codepen.dev/", "not an id"} {
-		t.Run(input, func(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "empty", input: ""},
+		{name: "profile url", input: "https://codepen.io/nocksock"},
+		{name: "codepen.dev host", input: "https://3f4d.codepen.dev/"},
+		{name: "prose", input: "not an id"},
+		{name: "bare view word", input: "editor"},
+		{name: "view without id", input: "https://codepen.io/pen/"},
+		{name: "percent-encoded id", input: "https://codepen.io/u/pen/Pw%57mgeN"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := Parse(input)
+			_, err := Parse(tt.input)
 			if err == nil || !strings.Contains(err.Error(), "can't find a Pen id") {
-				t.Errorf("Parse(%q) error = %v, want \"can't find a Pen id\"", input, err)
+				t.Errorf("Parse(%q) error = %v, want \"can't find a Pen id\"", tt.input, err)
 			}
 		})
 	}
