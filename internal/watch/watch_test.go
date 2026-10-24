@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"go.uber.org/goleak"
 )
 
@@ -27,7 +28,8 @@ func start(t *testing.T, dir string, opts Options) <-chan struct{} {
 	}
 	t.Cleanup(func() {
 		cancel()
-		for range changes { // wait until the watcher has shut down
+		for range changes {
+			// wait until the watcher has shut down
 		}
 	})
 	return changes
@@ -127,6 +129,18 @@ func TestChanges(t *testing.T) {
 		}
 	})
 
+	t.Run("follows a symlinked root", func(t *testing.T) {
+		t.Parallel()
+		real := t.TempDir()
+		link := filepath.Join(t.TempDir(), "link")
+		if err := os.Symlink(real, link); err != nil {
+			t.Fatal(err)
+		}
+		changes := start(t, link, fast)
+		write(t, filepath.Join(real, "a.js"), "1")
+		expectSignal(t, changes)
+	})
+
 	t.Run("fails for a missing directory", func(t *testing.T) {
 		t.Parallel()
 		if _, err := Changes(t.Context(), filepath.Join(t.TempDir(), "missing"), fast); err == nil {
@@ -149,5 +163,37 @@ func TestTracker_Fingerprint(t *testing.T) {
 	write(t, filepath.Join(dir, "a.js"), "22")
 	if tr.fingerprint() == before {
 		t.Error("a changed file left the fingerprint as it was")
+	}
+}
+
+func TestTracker_RescanFallback(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	watcher, err := fsnotify.NewWatcher() // no watches added: no events arrive
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := &tracker{dir: dir, opts: Options{Debounce: time.Hour, Rescan: 50 * time.Millisecond}.withDefaults(), watcher: watcher}
+	tr.last = tr.fingerprint()
+	ctx, cancel := context.WithCancel(context.Background())
+	out := make(chan struct{}, 1)
+	go tr.run(ctx, out)
+	t.Cleanup(func() {
+		cancel()
+		for range out {
+			// wait until the run loop has shut down
+		}
+	})
+
+	write(t, filepath.Join(dir, "a.js"), "1")
+	expectSignal(t, out)
+}
+
+func TestTracker_IsSkipped_root(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tr := &tracker{dir: dir, opts: Options{Skip: func(string) bool { return true }}.withDefaults()}
+	if tr.isSkipped(dir) {
+		t.Error("the root itself must never be skipped")
 	}
 }
