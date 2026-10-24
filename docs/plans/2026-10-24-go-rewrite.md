@@ -6798,9 +6798,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 3. If anything in the implementation deviated from the spec, update `docs/specs/2026-10-24-go-rewrite-design.md` to match.
 4. Commit only those paths in the hub:
    ```bash
-   git -C /home/nr/sandboxes/codepen-api-prototyping add README.md docs/specs tasks
+   git -C /home/nr/sandboxes/codepen-api-prototyping add README.md docs/specs
    git -C /home/nr/sandboxes/codepen-api-prototyping commit -m "docs: go skills directive and publishing follow-up (pen-rj8c)
 
    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
    ```
-   Check `git -C … status` first. Leave unrelated pending hub changes (for example `.beans.yml`, `skills-lock.json`) unstaged.
+   Check `git -C … status` first. Leave unrelated pending hub changes (for example `.beans.yml`, `skills-lock.json`) unstaged. Bean files: the beans directory (`path:` in `.beans.yml`) is currently `tasks/`, which the hub's `.gitignore` (`/*/`) ignores. Don't force-add it; ask the user how bean files should be committed.
