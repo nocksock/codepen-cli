@@ -92,9 +92,14 @@ func (c *Client) call(ctx context.Context, method, path string, body *payload, o
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 		return nil, fmt.Errorf("%s %s: decoding the answer: %w", method, path, err)
 	}
+	_, _ = io.Copy(io.Discard, resp.Body) // best effort, lets the connection be reused
 	return resp.Header, nil
 }
 
+// send runs the attempts of one request. The result of a final attempt (the
+// last allowed one, or one that isn't worth repeating) is returned unchanged.
+// Otherwise a done ctx wins and its error is returned. Errors from ctx and
+// from sleeping are wrapped with the request, so errors.Is still works.
 func (c *Client) send(ctx context.Context, method, path string, body *payload) (*http.Response, error) {
 	for attempt := 0; ; attempt++ {
 		resp, err := c.attempt(ctx, method, path, body)
@@ -112,14 +117,14 @@ func (c *Client) send(ctx context.Context, method, path string, body *payload) (
 			if resp != nil {
 				drain(resp)
 			}
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("%s %s: %w", method, path, ctx.Err())
 		}
 		wait := c.delay(resp, attempt)
 		if resp != nil {
 			drain(resp)
 		}
 		if err := sleep(ctx, wait); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s %s: %w", method, path, err)
 		}
 	}
 }

@@ -3,6 +3,7 @@ package codepen_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -78,8 +79,6 @@ func TestAPIError_WithoutJSONBody(t *testing.T) {
 
 func TestClient_ErrorsNeverContainTheKey(t *testing.T) {
 	t.Parallel()
-	closed := httptest.NewServer(http.NotFoundHandler())
-	closed.Close()
 	tests := []struct {
 		name   string
 		client func(t *testing.T) *codepen.Client
@@ -97,7 +96,7 @@ func TestClient_ErrorsNeverContainTheKey(t *testing.T) {
 		}},
 		{name: "network error", client: func(t *testing.T) *codepen.Client {
 			return codepen.New(testKey,
-				codepen.WithBaseURL(closed.URL),
+				codepen.WithHTTPClient(&http.Client{Transport: failingTransport{}}),
 				codepen.WithBackoff(time.Millisecond),
 			)
 		}},
@@ -165,4 +164,12 @@ func TestClient_StopsRetryingWhenCancelled(t *testing.T) {
 func getPen(ctx context.Context, api *codepen.Client) error {
 	_, err := api.Pen(ctx, "p1")
 	return err
+}
+
+// failingTransport fails like a dropped connection, echoing the request URL
+// the way net/http's own errors do.
+type failingTransport struct{}
+
+func (failingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return nil, fmt.Errorf("dial %s: connection refused", req.URL)
 }
