@@ -392,3 +392,45 @@ func TestClient_Settle_Cancelled(t *testing.T) {
 		t.Errorf("err = %v, want context.Canceled", err)
 	}
 }
+
+func TestClient_Download_ErrorsRedactTheURL(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.NotFoundHandler())
+	t.Cleanup(srv.Close)
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closedURL := closed.URL
+	closed.Close()
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{name: "bad status", url: srv.URL + "/raw/x?token=secret"},
+		{name: "network error", url: closedURL + "/raw/x?token=secret"},
+		{name: "userinfo", url: strings.Replace(srv.URL, "http://", "http://user:pass@", 1) + "/raw/x?token=secret"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := codepen.New("k").Download(t.Context(), tt.url)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			for _, leaked := range []string{"token", "secret", "pass"} {
+				if strings.Contains(err.Error(), leaked) {
+					t.Errorf("error leaks %q: %v", leaked, err)
+				}
+			}
+		})
+	}
+}
+
+func TestClient_Settle_KeepsLastBuildOnError(t *testing.T) {
+	t.Parallel()
+	api := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	build, err := api.Settle(t.Context(), codepen.Build{ID: "b1", Status: codepen.BuildQueued})
+	if err == nil || build.ID != "b1" {
+		t.Errorf("Settle() = %+v, %v; want the last build and an error", build, err)
+	}
+}

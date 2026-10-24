@@ -3,6 +3,7 @@ package codepen
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -115,21 +116,41 @@ func (c *Client) WriteFiles(ctx context.Context, id string, changes ChangeSet, e
 }
 
 // Download opens the content of a binary file. The caller closes it. The key
-// is not sent: file URLs may point at another host.
+// is not sent: file URLs may point at another host. Errors name the URL
+// without query or userinfo, which may carry signed tokens.
 func (c *Client) Download(ctx context.Context, fileURL string) (io.ReadCloser, error) {
+	shown := redact(fileURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("downloading %q: %w", fileURL, err)
+		return nil, fmt.Errorf("downloading %q: %w", shown, withoutURL(err))
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("downloading %q: %w", fileURL, err)
+		return nil, fmt.Errorf("downloading %q: %w", shown, withoutURL(err))
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
 		resp.Body.Close()
-		return nil, fmt.Errorf("downloading %q: %s", fileURL, resp.Status)
+		return nil, fmt.Errorf("downloading %q: %s", shown, resp.Status)
 	}
 	return resp.Body, nil
+}
+
+// redact keeps the scheme, host and path of a URL.
+func redact(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "(unparsable url)"
+	}
+	return (&url.URL{Scheme: u.Scheme, Host: u.Host, Path: u.Path}).String()
+}
+
+// withoutURL drops the full URL that net/http puts into its errors.
+func withoutURL(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return urlErr.Err
+	}
+	return err
 }
 
 // Settle follows a build until it is done, including through next_id when the
@@ -148,9 +169,10 @@ func (c *Client) Settle(ctx context.Context, build Build) (Build, error) {
 		if err := sleep(ctx, c.poll); err != nil {
 			return build, fmt.Errorf("waiting for build %q: %w", build.ID, err)
 		}
-		var err error
-		if build, err = c.Build(ctx, next); err != nil {
+		polled, err := c.Build(ctx, next)
+		if err != nil {
 			return build, err
 		}
+		build = polled
 	}
 }
