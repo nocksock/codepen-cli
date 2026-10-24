@@ -63,6 +63,23 @@ func TestRead(t *testing.T) {
 	}
 }
 
+func TestRead_SymlinkedRoot(t *testing.T) {
+	t.Parallel()
+	real := t.TempDir()
+	write(t, real, "src/app.js", "1")
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Read(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got["/src/app.js"]) != "1" || len(got) != 1 {
+		t.Errorf("Read(symlinked root) = %v, want only /src/app.js", keys(got))
+	}
+}
+
 func TestRead_MissingRoot(t *testing.T) {
 	t.Parallel()
 	_, err := Read(filepath.Join(t.TempDir(), "missing"))
@@ -101,27 +118,67 @@ func TestWrite_TopLevelFile(t *testing.T) {
 	}
 }
 
-func TestWrite_RefusesPathsOutsideRoot(t *testing.T) {
+func TestWrite_RefusesBadPaths(t *testing.T) {
 	t.Parallel()
-	parent := t.TempDir()
-	root := filepath.Join(parent, "work")
-	for _, path := range []string{"/../escape.txt", "/a/../../escape.txt"} {
-		err := Write(root, path, strings.NewReader("x"))
-		if err == nil || !strings.Contains(err.Error(), "refusing to write") {
-			t.Errorf("Write(%q) error = %v, want refusal", path, err)
-		}
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "parent", path: "/../escape.txt"},
+		{name: "nested parent", path: "/a/../../escape.txt"},
+		{name: "double slash", path: "//etc/x"},
+		{name: "only parent", path: "/.."},
+		{name: "nul byte", path: "/a\x00b"},
+		{name: "backslash", path: "/a\\b"},
+		{name: "empty", path: ""},
+		{name: "root", path: "/"},
+		{name: "dot", path: "/."},
+		{name: "trailing slash", path: "/a/"},
+		{name: "no leading slash", path: "a.txt"},
+		{name: "git hook", path: "/.git/hooks/pre-commit"},
+		{name: "git config", path: "/.git/config"},
+		{name: "env", path: "/.env"},
+		{name: "envrc", path: "/.envrc"},
+		{name: "env variant", path: "/.env.production"},
+		{name: "node modules", path: "/node_modules/x.js"},
+		{name: "ignored after cleaning", path: "/a/../.git/config"},
+		{name: "temp file", path: "/a.js.cdpn-tmp"},
 	}
-	if _, err := os.Stat(filepath.Join(parent, "escape.txt")); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("escape.txt was written outside the root")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			parent := t.TempDir()
+			root := filepath.Join(parent, "work")
+			err := Write(root, tt.path, strings.NewReader("x"))
+			if err == nil || !strings.Contains(err.Error(), "refusing to write") {
+				t.Errorf("Write(%q) error = %v, want refusal", tt.path, err)
+			}
+			if _, err := os.Stat(filepath.Join(parent, "escape.txt")); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("escape.txt was written outside the root")
+			}
+			if entries, _ := os.ReadDir(root); len(entries) > 0 {
+				t.Errorf("Write(%q) left %d entries in the root", tt.path, len(entries))
+			}
+		})
 	}
 }
 
-func TestWrite_RefusesEmptyPaths(t *testing.T) {
+func TestWrite_ReplacesPlantedTempSymlink(t *testing.T) {
 	t.Parallel()
-	for _, path := range []string{"", "/", "/."} {
-		if err := Write(t.TempDir(), path, strings.NewReader("x")); err == nil {
-			t.Errorf("Write(%q) succeeded, want an error", path)
-		}
+	root := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "victim")
+	write(t, root, "a.js", "old")
+	if err := os.Symlink(outside, filepath.Join(root, "a.js"+tmpSuffix)); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(root, "/a.js", strings.NewReader("new")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(outside); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("write was redirected through the planted symlink: %v", err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(root, "a.js")); string(data) != "new" {
+		t.Errorf("a.js = %q, want \"new\"", data)
 	}
 }
 
@@ -149,38 +206,6 @@ func TestWrite_CleansUpWhenRenameFails(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "dir"+tmpSuffix)); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("temporary file left behind: %v", err)
-	}
-}
-
-// The next two tests pin down os.Root behaviour that Write relies on.
-func TestRoot_MkdirAllDotIsNoop(t *testing.T) {
-	t.Parallel()
-	dir, err := os.OpenRoot(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dir.Close()
-	if err := dir.MkdirAll(".", 0o755); err != nil {
-		t.Errorf("Root.MkdirAll(\".\") = %v, want nil", err)
-	}
-}
-
-func TestRoot_RenameReplacesExistingFile(t *testing.T) {
-	t.Parallel()
-	root := t.TempDir()
-	write(t, root, "a", "old")
-	write(t, root, "b", "new")
-	dir, err := os.OpenRoot(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dir.Close()
-	if err := dir.Rename("b", "a"); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(root, "a"))
-	if err != nil || string(data) != "new" {
-		t.Errorf("a = %q, %v; want \"new\"", data, err)
 	}
 }
 

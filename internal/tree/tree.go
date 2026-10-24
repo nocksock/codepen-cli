@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
@@ -38,42 +39,42 @@ func IsIgnored(path string) bool {
 	return false
 }
 
-// Read returns every regular, non-ignored file below root. Symlinks are skipped.
+// Read returns every regular, non-ignored file below root. Symlinks inside the
+// tree are skipped; a symlinked root is followed. Files are read through
+// os.Root, so a symlink swapped in during the walk cannot lead outside.
 func Read(root string) (Snapshot, error) {
-	files := Snapshot{}
-	err := filepath.WalkDir(root, func(file string, entry fs.DirEntry, err error) error {
-		if err != nil || file == root {
-			return err
-		}
-		path, err := penPath(root, file)
-		if err != nil {
-			return err
-		}
-		if IsIgnored(path) {
-			return skip(entry)
-		}
-		if !entry.Type().IsRegular() {
-			return nil
-		}
-		data, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-		files[path] = data
-		return nil
-	})
+	dir, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, fmt.Errorf("reading %q: %w", root, err)
+	}
+	defer dir.Close()
+	files, err := readAll(dir.FS())
 	if err != nil {
 		return nil, fmt.Errorf("reading %q: %w", root, err)
 	}
 	return files, nil
 }
 
-func penPath(root, file string) (string, error) {
-	rel, err := filepath.Rel(root, file)
-	if err != nil {
-		return "", err
-	}
-	return "/" + filepath.ToSlash(rel), nil
+func readAll(fsys fs.FS) (Snapshot, error) {
+	files := Snapshot{}
+	err := fs.WalkDir(fsys, ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil || name == "." {
+			return err
+		}
+		if IsIgnored("/" + name) {
+			return skip(entry)
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		data, err := fs.ReadFile(fsys, name)
+		if err != nil {
+			return err
+		}
+		files["/"+name] = data
+		return nil
+	})
+	return files, err
 }
 
 func skip(entry fs.DirEntry) error {
@@ -84,13 +85,18 @@ func skip(entry fs.DirEntry) error {
 }
 
 // Write stores the contents of r at path below root, atomically: it writes a
-// temporary file next to the target, then renames it into place. A path that
-// would leave root (such as a remote "/../x") is refused, and all access goes
-// through os.Root so symlinks cannot lead outside either.
+// temporary file next to the target, then renames it into place. The target
+// keeps its permission bits if it already exists. A path that would leave root
+// (such as a remote "/../x") or that is ignored (such as "/.git/config") is
+// refused, and all access goes through os.Root so symlinks cannot lead outside
+// either.
+//
+// Write is not safe for concurrent writes to the same path. Names within 9
+// bytes of NAME_MAX fail, because the temporary file adds a suffix.
 func Write(root, path string, r io.Reader) error {
-	name := filepath.FromSlash(strings.TrimPrefix(path, "/"))
-	if !filepath.IsLocal(name) || filepath.Clean(name) == "." {
-		return fmt.Errorf("refusing to write %q: it is outside %q", path, root)
+	name, err := cleanName(path)
+	if err != nil {
+		return fmt.Errorf("refusing to write %q: not a file path inside %q", path, root)
 	}
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return fmt.Errorf("creating %q: %w", root, err)
@@ -106,21 +112,54 @@ func Write(root, path string, r io.Reader) error {
 	return nil
 }
 
+var errBadPath = errors.New("bad path")
+
+// cleanName turns a remote path into a local file name below the root, or
+// errBadPath if the path is not a plain, non-ignored file path.
+func cleanName(p string) (string, error) {
+	if !strings.HasPrefix(p, "/") || strings.HasSuffix(p, "/") ||
+		strings.Contains(p, "//") || strings.ContainsAny(p, "\\\x00") {
+		return "", errBadPath
+	}
+	clean := path.Clean(strings.TrimPrefix(p, "/")) // not rooted, so ".." stays visible
+	name := filepath.FromSlash(clean)
+	if !filepath.IsLocal(name) || clean == "." || IsIgnored("/"+clean) {
+		return "", errBadPath
+	}
+	return name, nil
+}
+
 func replace(dir *os.Root, name string, r io.Reader) error {
 	if err := dir.MkdirAll(filepath.Dir(name), 0o755); err != nil {
 		return err
 	}
-	if err := writeTemp(dir, name+tmpSuffix, r); err != nil {
+	tmp := name + tmpSuffix
+	if err := writeTemp(dir, tmp, existingPerm(dir, name), r); err != nil {
 		return err
 	}
-	if err := dir.Rename(name+tmpSuffix, name); err != nil {
-		return errors.Join(err, dir.Remove(name+tmpSuffix))
+	if err := dir.Rename(tmp, name); err != nil {
+		return errors.Join(err, dir.Remove(tmp))
 	}
 	return nil
 }
 
-func writeTemp(dir *os.Root, name string, r io.Reader) error {
-	f, err := dir.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+// existingPerm returns the permission bits of the regular file at name, or
+// 0o644 if there is none.
+func existingPerm(dir *os.Root, name string) fs.FileMode {
+	info, err := dir.Lstat(name)
+	if err != nil || !info.Mode().IsRegular() {
+		return 0o644
+	}
+	return info.Mode().Perm()
+}
+
+// writeTemp creates name exclusively, after removing any leftover, so a
+// planted file or symlink there cannot redirect the write.
+func writeTemp(dir *os.Root, name string, perm fs.FileMode, r io.Reader) error {
+	if err := dir.Remove(name); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	f, err := dir.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
 	if err != nil {
 		return err
 	}
