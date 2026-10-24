@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"iter"
 	"os"
 	"strings"
 )
@@ -22,54 +23,91 @@ func Read(path string) (map[string]string, error) {
 	return Parse(string(data)), nil
 }
 
-// Parse reads KEY=value lines. It understands "export " prefixes, # comments,
-// and single, double or backtick quotes (\n is expanded in double quotes).
+// Parse reads KEY=value entries like Node's util.parseEnv. It understands
+// "export " prefixes, whole-line # comments, and single, double or backtick
+// quotes (\n is expanded in double quotes). A quoted value may span several
+// lines. An unquoted value ends at the first #, so "A=abc#def" is "abc".
 func Parse(text string) map[string]string {
 	values := map[string]string{}
-	for line := range strings.Lines(text) {
-		if key, value, ok := parseLine(line); ok {
-			values[key] = value
-		}
+	for key, raw := range entries(text) {
+		values[key] = unquote(raw)
 	}
 	return values
 }
 
-func parseLine(line string) (key, value string, ok bool) {
+// entries yields each key with its raw (still quoted) value. A value whose
+// opening quote closes on a later line takes all lines up to that quote.
+func entries(text string) iter.Seq2[string, string] {
+	return func(yield func(string, string) bool) {
+		rest := text
+		for rest != "" {
+			var line string
+			line, rest, _ = strings.Cut(rest, "\n")
+			key, raw, ok := splitEntry(line)
+			if !ok {
+				continue
+			}
+			if isUnclosed(raw) {
+				if end := strings.IndexByte(rest, raw[0]); end >= 0 {
+					raw += "\n" + rest[:end+1]
+					_, rest, _ = strings.Cut(rest[end:], "\n")
+				}
+			}
+			if !yield(key, raw) {
+				return
+			}
+		}
+	}
+}
+
+// splitEntry splits a line into its key and raw value.
+func splitEntry(line string) (key, raw string, ok bool) {
 	line = strings.TrimSpace(line)
 	if line == "" || strings.HasPrefix(line, "#") {
 		return "", "", false
 	}
 	line = strings.TrimPrefix(line, "export ")
-	key, value, ok = strings.Cut(line, "=")
+	key, raw, ok = strings.Cut(line, "=")
 	key = strings.TrimSpace(key)
 	if !ok || key == "" {
 		return "", "", false
 	}
-	return key, unquote(strings.TrimSpace(value)), true
+	return key, strings.TrimSpace(raw), true
 }
 
-// unquote strips matching quotes or, from an unquoted value, a " # comment".
-func unquote(value string) string {
-	if value == "" {
-		return value
+func isQuote(c byte) bool { return c == '"' || c == '\'' || c == '`' }
+
+// isUnclosed reports whether raw opens a quote that its own line never closes.
+func isUnclosed(raw string) bool {
+	return raw != "" && isQuote(raw[0]) && !strings.Contains(raw[1:], raw[:1])
+}
+
+// unquote strips matching quotes or, from an unquoted value, a trailing #
+// comment.
+func unquote(raw string) string {
+	if raw == "" {
+		return raw
 	}
-	quote := value[0]
-	if quote == '"' || quote == '\'' || quote == '`' {
-		if end := strings.IndexByte(value[1:], quote); end >= 0 {
-			inner := value[1 : end+1]
+	quote := raw[0]
+	if isQuote(quote) {
+		if end := strings.IndexByte(raw[1:], quote); end >= 0 {
+			inner := raw[1 : end+1]
 			if quote == '"' {
 				inner = strings.ReplaceAll(inner, `\n`, "\n")
 			}
 			return inner
 		}
 	}
-	before, _, _ := strings.Cut(value, " #")
+	before, _, _ := strings.Cut(raw, "#")
 	return strings.TrimSpace(before)
 }
 
 // Set writes KEY=value into the file at path, replacing the first KEY= line or
 // appending one. A new file gets mode 0600, since env files may hold secrets.
 func Set(path, key, value string) error {
+	if strings.ContainsAny(value, "\r\n") {
+		return fmt.Errorf("value for %q contains a line break", key)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("reading %q: %w", path, err)
