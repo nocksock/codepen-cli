@@ -87,7 +87,7 @@ internal/
 
 Dependencies point downward only: `cli` → `pen`, `info`, `setup` → building blocks.
 Building blocks do not import each other, except `diff` using `tree.Snapshot` and
-`codepen` types, and `info` using `diff`.
+`codepen` types, and `config` using `envfile` and `ref`.
 
 Rules:
 - `pen` never prints and never touches env files. Progress goes through a one-method
@@ -188,7 +188,7 @@ func (c *Client) Build(ctx, id) (Build, error)
 func (c *Client) CountVersions(ctx, penID) (int, error)       // per_page=1 + Link rel="last"
 func (c *Client) CreatePen(ctx, NewPen) (Created, error)      // NewPen{Title; Changes ChangeSet}
 func (c *Client) WriteFiles(ctx, id string, cs ChangeSet, expected string) (Build, error)
-func (c *Client) Download(ctx, url string, w io.Writer) error // no Authorization header
+func (c *Client) Download(ctx, url string) (io.ReadCloser, error) // no Authorization header
 func (c *Client) Settle(ctx, Build) (Build, error)            // Queued/Running → poll; Canceled+next_id → follow
 
 type ChangeSet struct { Writes []Write; Deletes []string; Uploads []Upload }
@@ -266,7 +266,8 @@ are unordered); `writeBack` likewise walks remote paths in sorted order.
   (Status, error)` with `Status` = `Created | Updated | Kept` (zero value `Unknown`).
 - `setup.Scaffold(dir, key string) ([]Result, error)` and
   `setup.AllowDirenv(ctx, run) bool`; `DefaultKey = "op://Private/CodePen/API Key"`.
-- `info.Gather(ctx, api, id, root) (Status, error)` with errgroup;
+- `info.Gather(ctx, api, id, root) (Status, error)` fetches Pen, files and version
+  count with an errgroup, then reads the local snapshot (unreadable = empty);
   `info.Render(Status, now time.Time) string` — same rows and wording as `info.js`.
 - `human.Bytes`, `human.Ago(t, now)`, `human.Plural(n, word)`, `human.Table(rows)`.
 - `browser.Command(goos, url string) (string, []string)` — `open` / `cmd /c start ""` /
@@ -287,9 +288,11 @@ func Changes(ctx context.Context, dir string, opts Options) (<-chan struct{}, er
   subtree immediately.
 - Events only arm a debounce timer (`time.NewTimer` + `Reset`). When it fires, one
   non-blocking send on a channel with buffer 1: bursts collapse, nothing is lost.
-- Every `Rescan`, compares a fingerprint (paths, sizes, mtimes; no hashing) with the
-  previous one and signals only on change. Watcher errors (overflow, `ENOSPC`) switch to
-  fingerprint-only mode instead of failing.
+- Every `Rescan`, compares a fingerprint (paths, sizes, mtimes of files; no content
+  hashing) with the previous one and signals only on change. Runtime watcher errors
+  (overflow, a failed watch) leave the rescan to catch up instead of failing. A failure
+  to watch at startup (e.g. `ENOSPC`, the inotify limit) is returned as an error, so the
+  user can act on it.
 - One goroutine owns and closes the channel when ctx is done.
 
 ### sync (in cli)
