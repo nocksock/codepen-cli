@@ -21,6 +21,14 @@ func TestParse(t *testing.T) {
 		{name: "export prefix", input: "export A=1", expected: map[string]string{"A": "1"}},
 		{name: "comments and blanks", input: "# note\n\nA=1 # trailing\n", expected: map[string]string{"A": "1"}},
 		{name: "crlf", input: "A=1\r\nB=2\r\n", expected: map[string]string{"A": "1", "B": "2"}},
+		{name: "multi-line double quotes", input: "A=\"l1\nl2\"\nB=2", expected: map[string]string{"A": "l1\nl2", "B": "2"}},
+		{name: "multi-line value swallows key lines", input: "A=\"x\nB=2\"", expected: map[string]string{"A": "x\nB=2"}},
+		{name: "multi-line single quotes", input: "A='a\nb'\nC=1", expected: map[string]string{"A": "a\nb", "C": "1"}},
+		{name: "unterminated quote stays literal", input: "A=\"open\nB=2", expected: map[string]string{"A": `"open`, "B": "2"}},
+		{name: "tab before comment", input: "A=1\t# c", expected: map[string]string{"A": "1"}},
+		{name: "hash inside unquoted value", input: "A=abc#def", expected: map[string]string{"A": "abc"}},
+		{name: "hash inside quotes", input: `A="a # b"`, expected: map[string]string{"A": "a # b"}},
+		{name: "backticks", input: "A=`b t`", expected: map[string]string{"A": "b t"}},
 		{name: "lines without key", input: "=1\nnope\n", expected: map[string]string{}},
 	}
 	for _, tt := range tests {
@@ -97,6 +105,19 @@ func TestSet_CreatesPrivateFile(t *testing.T) {
 	}
 	if mode := info.Mode().Perm(); mode != 0o600 {
 		t.Errorf("mode = %o, want 600", mode)
+	}
+}
+
+func TestSet_RejectsLineBreaks(t *testing.T) {
+	t.Parallel()
+	for _, value := range []string{"a\nb", "a\rb"} {
+		path := filepath.Join(t.TempDir(), ".env.local")
+		if err := Set(path, "A", value); err == nil {
+			t.Errorf("Set(%q) succeeded, want an error", value)
+		}
+		if _, err := os.Stat(path); err == nil {
+			t.Errorf("Set(%q) created the file", value)
+		}
 	}
 }
 
