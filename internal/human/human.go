@@ -1,0 +1,106 @@
+// Package human formats values for people reading a terminal.
+package human
+
+import (
+	"fmt"
+	"math"
+	"strings"
+	"time"
+)
+
+var units = []string{"B", "KB", "MB", "GB"}
+
+// Bytes formats n as "18 B", "1.5 KB", "3.0 MB".
+func Bytes(n int64) string {
+	value, unit := float64(n), 0
+	for value >= 1024 && unit < len(units)-1 {
+		value /= 1024
+		unit++
+	}
+	if unit == 0 {
+		return fmt.Sprintf("%d %s", n, units[0])
+	}
+	return fmt.Sprintf("%.1f %s", value, units[unit])
+}
+
+// Plural formats "1 file" or "2 files".
+func Plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
+}
+
+type span struct {
+	unit    string
+	seconds float64
+}
+
+var spans = []span{
+	{unit: "year", seconds: 31536000},
+	{unit: "month", seconds: 2592000},
+	{unit: "day", seconds: 86400},
+	{unit: "hour", seconds: 3600},
+	{unit: "minute", seconds: 60},
+}
+
+// named holds the words that replace -1, 0 and +1 of a unit, as
+// Intl.RelativeTimeFormat("en", {numeric: "auto"}) does.
+var named = map[string][3]string{
+	"second": {"", "now", ""},
+	"minute": {"", "this minute", ""},
+	"hour":   {"", "this hour", ""},
+	"day":    {"yesterday", "today", "tomorrow"},
+	"month":  {"last month", "this month", "next month"},
+	"year":   {"last year", "this year", "next year"},
+}
+
+// Ago formats t relative to now: "now", "5 minutes ago", "yesterday", "in 2 days".
+func Ago(t, now time.Time) string {
+	// Rounding is floor(x+0.5) to match JS Math.round (half rounds toward +Inf).
+	seconds := t.Sub(now).Seconds()
+	unit, size := "second", 1.0
+	for _, s := range spans {
+		if math.Abs(seconds) >= s.seconds {
+			unit, size = s.unit, s.seconds
+			break
+		}
+	}
+	return relative(int(math.Floor(seconds/size+0.5)), unit)
+}
+
+func relative(n int, unit string) string {
+	if n >= -1 && n <= 1 {
+		if word := named[unit][n+1]; word != "" {
+			return word
+		}
+	}
+	if n < 0 {
+		return Plural(-n, unit) + " ago"
+	}
+	return "in " + Plural(n, unit)
+}
+
+// Row is one "label  value" line of a Table.
+type Row struct {
+	Label string
+	Value string
+}
+
+// Table aligns rows into "label  value" lines and drops rows without a value.
+func Table(rows []Row) string {
+	shown := []Row{}
+	width := 0
+	for _, row := range rows {
+		if row.Value == "" {
+			continue
+		}
+		shown = append(shown, row)
+		width = max(width, len(row.Label))
+	}
+	lines := make([]string, 0, len(shown))
+	for _, row := range shown {
+		lines = append(lines, fmt.Sprintf("%-*s  %s", width, row.Label, row.Value))
+	}
+	return strings.Join(lines, "\n")
+}
