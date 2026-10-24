@@ -1,0 +1,5 @@
+# every top-level folder is a worktree, except the shared ones
+/*/
+!/docs/
+!/.beans/
+!/scripts/
