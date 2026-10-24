@@ -14,6 +14,8 @@ func TestBytes(t *testing.T) {
 	}{
 		{name: "bytes", input: 18, expected: "18 B"},
 		{name: "kilobytes", input: 1536, expected: "1.5 KB"},
+		{name: "half rounds up", input: 1280, expected: "1.3 KB"},
+		{name: "gigabytes", input: 5 * 1024 * 1024 * 1024, expected: "5.0 GB"},
 		{name: "megabytes", input: 3 * 1024 * 1024, expected: "3.0 MB"},
 	}
 	for _, tt := range tests {
@@ -28,11 +30,22 @@ func TestBytes(t *testing.T) {
 
 func TestPlural(t *testing.T) {
 	t.Parallel()
-	if got := Plural(1, "file"); got != "1 file" {
-		t.Errorf("Plural(1) = %q", got)
+	tests := []struct {
+		name     string
+		input    int
+		expected string
+	}{
+		{name: "one", input: 1, expected: "1 file"},
+		{name: "many", input: 2, expected: "2 files"},
+		{name: "zero", input: 0, expected: "0 files"},
 	}
-	if got := Plural(2, "file"); got != "2 files" {
-		t.Errorf("Plural(2) = %q", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := Plural(tt.input, "file"); got != tt.expected {
+				t.Errorf("Plural(%d) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
 	}
 }
 
