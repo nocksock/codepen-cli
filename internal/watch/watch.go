@@ -5,6 +5,7 @@ package watch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"io/fs"
@@ -39,13 +40,17 @@ func (o Options) withDefaults() Options {
 // returned channel. Each value means "something changed"; bursts collapse into
 // one value, and one is kept while the receiver is busy.
 func Changes(ctx context.Context, dir string, opts Options) (<-chan struct{}, error) {
+	root, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return nil, fmt.Errorf("resolving %q: %w", dir, err)
+	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("starting the file watcher: %w", err)
 	}
-	t := &tracker{dir: dir, opts: opts.withDefaults(), watcher: watcher}
-	if err := t.addTree(dir); err != nil {
-		watcher.Close()
+	t := &tracker{dir: root, opts: opts.withDefaults(), watcher: watcher}
+	if err := t.addTree(root); err != nil {
+		_ = watcher.Close() // the addTree error is the one worth reporting
 		return nil, err
 	}
 	t.last = t.fingerprint()
@@ -63,7 +68,7 @@ type tracker struct {
 
 func (t *tracker) run(ctx context.Context, out chan<- struct{}) {
 	defer close(out)
-	defer t.watcher.Close()
+	defer func() { _ = t.watcher.Close() }() // nothing to do about a close error on shutdown
 	debounce := time.NewTimer(t.opts.Debounce)
 	debounce.Stop()
 	defer debounce.Stop()
@@ -86,13 +91,17 @@ func (t *tracker) run(ctx context.Context, out chan<- struct{}) {
 			// Overflow or a failed watch: events may be missing, rescans catch up.
 			if !ok {
 				errs = nil
+				continue
 			}
+			_ = t.addTree(t.dir) // a lost Create may have left a directory unwatched
+			debounce.Reset(t.opts.Debounce)
 		case <-debounce.C:
 			t.last = t.fingerprint()
 			notify(out)
 		case <-rescan.C:
 			if fp := t.fingerprint(); fp != t.last {
 				t.last = fp
+				debounce.Stop()      // this signal already covers any pending event
 				_ = t.addTree(t.dir) // best effort: picks up directories events missed
 				notify(out)
 			}
@@ -129,7 +138,7 @@ func (t *tracker) addTree(root string) error {
 			if path == root {
 				return fmt.Errorf("watching %q: %w", path, err)
 			}
-			return nil // vanished while walking; the rescan catches up
+			return nil //nolint:nilerr // vanished while walking; the rescan catches up
 		}
 		if !entry.IsDir() {
 			return nil
@@ -138,6 +147,9 @@ func (t *tracker) addTree(root string) error {
 			return fs.SkipDir
 		}
 		if err := t.watcher.Add(path); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return fs.SkipDir // vanished between the walk and the watch
+			}
 			return fmt.Errorf("watching %q: %w", path, err)
 		}
 		return nil
@@ -146,7 +158,7 @@ func (t *tracker) addTree(root string) error {
 
 func (t *tracker) isSkipped(file string) bool {
 	rel, err := filepath.Rel(t.dir, file)
-	if err != nil {
+	if err != nil || rel == "." {
 		return false
 	}
 	return t.opts.Skip("/" + filepath.ToSlash(rel))
@@ -158,7 +170,7 @@ func (t *tracker) fingerprint() uint64 {
 	// The callback never returns an error, so neither does WalkDir.
 	_ = filepath.WalkDir(t.dir, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || path == t.dir {
-			return nil
+			return nil //nolint:nilerr // unreadable entries are left out of the fingerprint
 		}
 		if t.isSkipped(path) {
 			if entry.IsDir() {
@@ -171,9 +183,9 @@ func (t *tracker) fingerprint() uint64 {
 		}
 		info, err := entry.Info()
 		if err != nil {
-			return nil
+			return nil //nolint:nilerr // vanished mid-walk; the next scan sees it gone
 		}
-		fmt.Fprintf(h, "%s\x00%d\x00%d\n", path, info.Size(), info.ModTime().UnixNano())
+		_, _ = fmt.Fprintf(h, "%s\x00%d\x00%d\n", path, info.Size(), info.ModTime().UnixNano())
 		return nil
 	})
 	return h.Sum64()
