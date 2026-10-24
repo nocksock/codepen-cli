@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Ensure a hub worktree exists for a bean and print its absolute path.
+# The worktree lives at <hub>/<bean-id> on branch task/<bean-id>, branched off main.
+#
+# Branches created before the hub still carry .beans/ and .beans.yml; those paths
+# are excluded via sparse-checkout so the hub's tasks stay the ones in use.
+#
+# Usage: scripts/bean-worktree [bean-id]   (defaults to $BEANS_ID)
+
+set -euo pipefail
+
+BEAN_ID="${1:-${BEANS_ID:-}}"
+[[ -n "$BEAN_ID" ]] || { echo "Error: no bean id given and BEANS_ID not set" >&2; exit 1; }
+
+HUB=$(cd "$(dirname "$0")/.." && pwd)
+DIR="$HUB/$BEAN_ID"
+BRANCH="task/$BEAN_ID"
+BASE=main
+
+if [[ ! -d "$DIR" ]]; then
+    git -C "$HUB" worktree prune
+    if git -C "$HUB" show-ref --verify --quiet "refs/heads/$BRANCH"; then
+        git -C "$HUB" worktree add --quiet --no-checkout "$DIR" "$BRANCH" >&2
+        if git -C "$HUB" cat-file -e "$BRANCH:.beans.yml" 2>/dev/null; then
+            git -C "$DIR" sparse-checkout set --no-cone '/*' '!/.beans/' '!/.beans.yml' >&2
+        fi
+        git -C "$DIR" checkout --quiet >&2
+    else
+        git -C "$HUB" worktree add --quiet "$DIR" -b "$BRANCH" "$BASE" >&2
+    fi
+fi
+
+echo "$DIR"

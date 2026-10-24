@@ -1,0 +1,31 @@
+#!/usr/bin/env zsh
+# Run a command in a new tmux session for the current bean.
+# Creates a session and attaches to it.
+#
+# Environment variables:
+#   BEANS_ID    - The bean ID (e.g., "beans-abc123")
+#   BEANS_TASK  - The bean title (e.g., "Fix bug in parser")
+#   BEANS_DIR   - The .beans directory path
+#   BEANS_CONFIG_DIR - The hub root; sessions start in its main/ worktree (branch main)
+
+PROJECT_ROOT="${BEANS_CONFIG_DIR:-.}/main"
+
+if [[ -z "$BEANS_ID" || -z "$BEANS_TASK" ]]; then
+    echo "Error: BEANS_ID and BEANS_TASK environment variables must be set." >&2
+    exit 1
+fi
+
+SESSION_NAME="${BEANS_ID//[^a-zA-Z0-9_-]/}-${BEANS_TASK//[^a-zA-Z0-9_-]/}"
+
+# Create session if it doesn't exist
+if ! tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    tmux new-session -d -s "$SESSION_NAME" -c "$PROJECT_ROOT"
+fi
+
+if [[ -z "$TMUX" ]]; then
+    # Not already in a tmux session, attach to the new session
+    tmux attach-session -t "$SESSION_NAME"
+else
+# Already in a tmux session, switch to the new session
+    tmux switch-client -t "$SESSION_NAME"
+fi
