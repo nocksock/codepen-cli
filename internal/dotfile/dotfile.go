@@ -3,6 +3,7 @@
 package dotfile
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -34,23 +35,34 @@ func (s Status) String() string {
 	}
 }
 
-// Ensure creates path with content unless it exists. An existing file is never
-// touched: .env may be a 1Password mount.
+// Ensure creates path with content unless something already exists there. An
+// existing file is never touched: .env may be a 1Password mount. Creation is
+// exclusive, so concurrent callers cannot race and a dangling symlink is kept.
 func Ensure(path, content string, perm fs.FileMode) (Status, error) {
-	if exists(path) {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
+	if errors.Is(err, fs.ErrExist) {
 		return Kept, nil
 	}
-	if err := os.WriteFile(path, []byte(content), perm); err != nil {
+	if err != nil {
 		return Unknown, fmt.Errorf("creating %q: %w", path, err)
+	}
+	if _, err := file.WriteString(content); err != nil {
+		_ = file.Close()
+		return Unknown, fmt.Errorf("writing %q: %w", path, err)
+	}
+	if err := file.Close(); err != nil {
+		return Unknown, fmt.Errorf("closing %q: %w", path, err)
 	}
 	return Created, nil
 }
 
 // EnsureLines appends the lines missing from path, creating the file if needed.
-// Lines are compared after trimming whitespace.
+// Lines are compared after trimming whitespace. It reads the whole file, so it
+// is not meant for .env, which may be a FIFO.
 func EnsureLines(path string, lines []string) (Status, error) {
-	if !exists(path) {
-		return Ensure(path, strings.Join(lines, "\n")+"\n", 0o644)
+	status, err := Ensure(path, strings.Join(lines, "\n")+"\n", 0o644)
+	if err != nil || status == Created {
+		return status, err
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -83,9 +95,4 @@ func missingLines(text string, lines []string) []string {
 		}
 	}
 	return missing
-}
-
-func exists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }

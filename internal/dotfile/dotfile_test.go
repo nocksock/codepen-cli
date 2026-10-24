@@ -18,6 +18,13 @@ func TestEnsure(t *testing.T) {
 		t.Fatalf("second Ensure = %v, %v; want kept", status, err)
 	}
 	assertFile(t, path, "A=1\n")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want 0600", info.Mode().Perm())
+	}
 }
 
 func TestEnsureLines(t *testing.T) {
