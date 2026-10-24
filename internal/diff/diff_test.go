@@ -76,3 +76,12 @@ func TestBetween_Nothing(t *testing.T) {
 		t.Errorf("Between() = %+v, want empty", got)
 	}
 }
+
+func TestBetween_KeepsIgnoredRemoteFiles(t *testing.T) {
+	t.Parallel()
+	remote := map[string]codepen.File{"/.envrc": text("/.envrc", "x"), "/old.js": text("/old.js", "1")}
+	got := Between(tree.Snapshot{"/a.js": []byte("1")}, remote)
+	if want := []string{"/old.js"}; !reflect.DeepEqual(got.Deletes, want) {
+		t.Errorf("Deletes = %q, want %q", got.Deletes, want)
+	}
+}

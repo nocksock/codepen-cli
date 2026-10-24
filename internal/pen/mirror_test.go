@@ -27,6 +27,8 @@ func (r *recorder) Report(e Event) {
 }
 
 func (r *recorder) saveID(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.saved = append(r.saved, id)
 	return nil
 }
@@ -64,6 +66,9 @@ func TestMirror_Push_CreatesPen(t *testing.T) {
 	}
 	if got := api.Files(m.ID())["/index.html"]; got != "<h1>x</h1>" {
 		t.Errorf("remote index.html = %q", got)
+	}
+	if len(rec.events) == 0 {
+		t.Fatal("no events reported")
 	}
 	if _, ok := rec.events[0].(Created); !ok {
 		t.Errorf("first event = %#v, want Created", rec.events[0])
@@ -165,5 +170,79 @@ func TestMirror_Pull_SkipsIgnoredRemotePaths(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, ".envrc")); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf(".envrc was written (stat error = %v)", err)
+	}
+}
+
+func TestMirror_Pull_IntoMissingDirectory(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	id := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	root := filepath.Join(t.TempDir(), "new", "work")
+	m, _ := open(t, api, root, "")
+	if err := m.Pull(t.Context(), PullOptions{Ref: id}); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := os.ReadFile(filepath.Join(root, "a.js")); err != nil || string(data) != "1" {
+		t.Errorf("a.js = %q, %v", data, err)
+	}
+}
+
+func TestMirror_Pull_RestoresStateWhenSaveFails(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	first := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	second := api.Seed(codepentest.Seed{Files: map[string]string{"b.js": "2"}})
+	m, _ := open(t, api, t.TempDir(), first)
+	m.cfg.SaveID = func(string) error { return errors.New("disk full") }
+
+	err := m.Pull(t.Context(), PullOptions{Ref: second, Force: true})
+	if err == nil || !strings.Contains(err.Error(), "disk full") {
+		t.Fatalf("Pull() error = %v", err)
+	}
+	if m.ID() != first || m.isTracking {
+		t.Errorf("id = %q, tracking = %v, want %q and false", m.ID(), m.isTracking, first)
+	}
+}
+
+func TestMirror_Push_KeepsIgnoredRemoteFiles(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	id := api.Seed(codepentest.Seed{Files: map[string]string{".envrc": "export X=1", "a.js": "1"}})
+	m, _ := open(t, api, t.TempDir(), "")
+	if err := m.Pull(t.Context(), PullOptions{Ref: id}); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Push(t.Context(), PushOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := api.Calls(`^PUT `); got != 0 {
+		t.Errorf("PUT calls = %d, want 0", got)
+	}
+	if _, ok := api.Files(id)["/.envrc"]; !ok {
+		t.Error(".envrc was deleted remotely")
+	}
+}
+
+func TestMirror_Push_AfterCreate(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	root := t.TempDir()
+	writeFile(t, root, "index.html", "<h1>x</h1>")
+	m, _ := open(t, api, root, "")
+	if err := m.Push(t.Context(), PushOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Push(t.Context(), PushOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if puts, gets := api.Calls(`^PUT `), api.Calls(`^GET /v2/pens/[^/]+$`); puts != 0 || gets != 0 {
+		t.Errorf("PUT = %d, GET pen = %d, want 0 and 0", puts, gets)
+	}
+	writeFile(t, root, "index.html", "<h1>y</h1>")
+	if err := m.Push(t.Context(), PushOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := api.Calls(`^PUT `); got != 1 {
+		t.Errorf("PUT calls = %d, want 1", got)
 	}
 }
