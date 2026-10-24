@@ -25,8 +25,8 @@ type Config struct {
 	API      *codepen.Client
 	Root     string                // absolute directory to mirror
 	ID       string                // connected Pen; "" when none
-	SaveID   func(id string) error // records a newly connected Pen
-	Reporter Reporter
+	SaveID   func(id string) error // required: records a newly connected Pen
+	Reporter Reporter              // required
 }
 
 // Mirror is a local directory mirrored to a Pen. Between calls it remembers the
@@ -108,10 +108,10 @@ func (m *Mirror) create(ctx context.Context) error {
 		return err
 	}
 	m.id, m.urls = created.ID, created.URLs
-	if err := m.cfg.SaveID(created.ID); err != nil {
-		return fmt.Errorf("saving the Pen id: %w", err)
-	}
 	m.cfg.Reporter.Report(Created{URLs: created.URLs})
+	if err := m.cfg.SaveID(created.ID); err != nil {
+		return fmt.Errorf("saving Pen id %s: %w", created.ID, err)
+	}
 	if err := m.settle(ctx, created.Build); err != nil {
 		return err
 	}
@@ -133,15 +133,16 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 	if m.id != "" && m.id != id && !opts.Force {
 		return fmt.Errorf("this directory is connected to %s; pass --force to switch to %s", m.id, id)
 	}
-	previous := m.id
+	before := *m
 	m.id = id
 	if err := m.fetch(ctx); err != nil {
-		m.id = previous
+		*m = before
 		return err
 	}
-	if previous != id {
+	if before.id != id {
 		if err := m.cfg.SaveID(id); err != nil {
-			return fmt.Errorf("saving the Pen id: %w", err)
+			*m = before
+			return fmt.Errorf("saving Pen id %s: %w", id, err)
 		}
 		m.cfg.Reporter.Report(Connected{URLs: m.urls})
 	}
@@ -162,8 +163,23 @@ func (m *Mirror) target(penRef string) (string, error) {
 	return "", errors.New("no Pen to pull: pass a Pen id or URL, or set CODEPEN_ID")
 }
 
-// fetch loads the Pen's metadata and head files.
+// fetch loads the Pen's head and tracks it.
 func (m *Mirror) fetch(ctx context.Context) error {
+	meta, files, err := m.fetchHead(ctx)
+	if err != nil {
+		return err
+	}
+	m.urls = meta.URLs
+	head := ""
+	if meta.SavedVersion != nil {
+		head = meta.SavedVersion.ID
+	}
+	m.track(head, files)
+	return nil
+}
+
+// fetchHead requests the Pen's metadata and head files concurrently.
+func (m *Mirror) fetchHead(ctx context.Context) (codepen.Pen, []codepen.File, error) {
 	var (
 		meta  codepen.Pen
 		files []codepen.File
@@ -177,16 +193,7 @@ func (m *Mirror) fetch(ctx context.Context) error {
 		files, err = m.cfg.API.Files(gctx, m.id)
 		return err
 	})
-	if err := g.Wait(); err != nil {
-		return err
-	}
-	m.urls = meta.URLs
-	head := ""
-	if meta.SavedVersion != nil {
-		head = meta.SavedVersion.ID
-	}
-	m.track(head, files)
-	return nil
+	return meta, files, g.Wait()
 }
 
 // settle waits for a build and tracks the version it produced. That version may
