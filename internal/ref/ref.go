@@ -44,23 +44,38 @@ func isID(value string) bool {
 }
 
 func fromURL(value string) string {
-	if !schemePattern.MatchString(value) {
-		value = "https://" + value
-	}
-	u, err := url.Parse(value)
-	if err != nil {
+	u, ok := parseLoose(value)
+	if !ok {
 		return ""
 	}
 	if template := u.Query().Get("template"); isID(template) {
 		return template
 	}
-	segments := strings.FieldsFunc(u.Path, func(r rune) bool { return r == '/' })
+	// EscapedPath, not Path: ids are matched against the still-encoded path.
+	segments := strings.FieldsFunc(u.EscapedPath(), func(r rune) bool { return r == '/' })
+	if id := firstUUID(segments); id != "" {
+		return id
+	}
+	return afterView(segments)
+}
+
+// parseLoose parses value as a URL, assuming https when the scheme is missing.
+func parseLoose(value string) (*url.URL, bool) {
+	if !schemePattern.MatchString(value) {
+		value = "https://" + value
+	}
+	u, err := url.Parse(value)
+	return u, err == nil
+}
+
+// firstUUID returns the first segment that is a UUID.
+func firstUUID(segments []string) string {
 	for _, segment := range segments {
 		if uuidPattern.MatchString(segment) {
 			return segment
 		}
 	}
-	return afterView(segments)
+	return ""
 }
 
 // afterView returns the first id following the first view segment.
@@ -74,6 +89,7 @@ func afterView(segments []string) string {
 				return next
 			}
 		}
+		// Only the first view segment counts.
 		return ""
 	}
 	return ""

@@ -14,3 +14,7 @@ formatters:
   enable:
     - gofumpt
     - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/nocksock/codepen-cli
