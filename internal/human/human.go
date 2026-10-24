@@ -20,7 +20,8 @@ func Bytes(n int64) string {
 	if unit == 0 {
 		return fmt.Sprintf("%d %s", n, units[0])
 	}
-	return fmt.Sprintf("%.1f %s", value, units[unit])
+	// Round half up like JS toFixed(1); %.1f would round ties to even.
+	return fmt.Sprintf("%.1f %s", math.Round(value*10)/10, units[unit])
 }
 
 // Plural formats "1 file" or "2 files".
@@ -55,17 +56,21 @@ var named = map[string][3]string{
 	"year":   {"last year", "this year", "next year"},
 }
 
-// Ago formats t relative to now: "now", "5 minutes ago", "yesterday", "in 2 days".
-func Ago(t, now time.Time) string {
-	// Rounding is floor(x+0.5) to match JS Math.round (half rounds toward +Inf).
-	seconds := t.Sub(now).Seconds()
-	unit, size := "second", 1.0
+// spanFor picks the largest unit that fits seconds, falling back to seconds.
+func spanFor(seconds float64) (unit string, size float64) {
 	for _, s := range spans {
 		if math.Abs(seconds) >= s.seconds {
-			unit, size = s.unit, s.seconds
-			break
+			return s.unit, s.seconds
 		}
 	}
+	return "second", 1
+}
+
+// Ago formats t relative to now: "now", "5 minutes ago", "yesterday", "in 2 days".
+func Ago(t, now time.Time) string {
+	seconds := t.Sub(now).Seconds()
+	unit, size := spanFor(seconds)
+	// floor(x+0.5) matches JS Math.round (half rounds toward +Inf).
 	return relative(int(math.Floor(seconds/size+0.5)), unit)
 }
 
