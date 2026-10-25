@@ -3,12 +3,16 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/nocksock/codepen-cli/internal/envfile"
+	"github.com/nocksock/codepen-cli/internal/penconfig"
 	"github.com/nocksock/codepen-cli/internal/ref"
 )
 
@@ -16,7 +20,7 @@ const (
 	// SecretsFile holds the API key. The CLI only ever reads it: it may be a
 	// 1Password Environments mount.
 	SecretsFile = ".env"
-	// StateFile holds local state such as CODEPEN_ID and wins over SecretsFile.
+	// StateFile holds local settings such as CODEPEN_DIR and wins over SecretsFile.
 	StateFile = ".env.local"
 )
 
@@ -24,7 +28,7 @@ const (
 type Config struct {
 	KeyRef       string        // CODEPEN_API_KEY: a key or an op:// reference
 	Dir          string        // CODEPEN_DIR as an absolute path (default: the working directory)
-	PenID        string        // CODEPEN_ID, parsed; "" when no Pen is connected
+	PenID        string        // CODEPEN_ID, else the id in Dir/.codepen/pen.config.json; "" when none
 	APIURL       string        // CODEPEN_API_URL; "" for the production API
 	PollInterval time.Duration // CODEPEN_POLL_MS; 0 for the default
 }
@@ -43,6 +47,11 @@ func Load(dir string, getenv func(string) (string, bool)) (Config, error) {
 	}
 	if cfg.PenID, err = penID(lookup("CODEPEN_ID")); err != nil {
 		return Config{}, err
+	}
+	if cfg.PenID == "" {
+		if cfg.PenID, err = storedPenID(cfg.Dir); err != nil {
+			return Config{}, err
+		}
 	}
 	if cfg.PollInterval, err = millis(lookup("CODEPEN_POLL_MS")); err != nil {
 		return Config{}, err
@@ -86,6 +95,20 @@ func resolve(dir, path string) string {
 		return filepath.Clean(path)
 	}
 	return filepath.Join(dir, path)
+}
+
+// storedPenID reads the Pen id kept in dir's .codepen/pen.config.json; a
+// missing file means no Pen is connected.
+func storedPenID(dir string) (string, error) {
+	file := filepath.Join(dir, filepath.FromSlash(penconfig.Path))
+	data, err := os.ReadFile(file)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("reading %q: %w", file, err)
+	}
+	return penconfig.ID(data), nil
 }
 
 func penID(value string) (string, error) {

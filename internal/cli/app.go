@@ -3,11 +3,9 @@ package cli
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/config"
-	"github.com/nocksock/codepen-cli/internal/envfile"
 	"github.com/nocksock/codepen-cli/internal/pen"
 	"github.com/nocksock/codepen-cli/internal/secret"
 )
@@ -62,7 +60,6 @@ func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
 		API:      api,
 		Root:     cfg.Dir,
 		ID:       cfg.PenID,
-		SaveID:   a.saveID,
 		Reporter: printer{w: a.env.Stdout},
 	})
 	return m, cfg, nil
@@ -78,11 +75,6 @@ func (a *app) connected(ctx context.Context) (*codepen.Client, config.Config, er
 		return nil, cfg, errNotConnected
 	}
 	return api, cfg, nil
-}
-
-// saveID records the connected Pen in the state file of the working directory.
-func (a *app) saveID(id string) error {
-	return envfile.Set(filepath.Join(a.env.Dir, config.StateFile), "CODEPEN_ID", id)
 }
 
 func (a *app) printf(format string, args ...any) {

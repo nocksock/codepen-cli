@@ -106,8 +106,8 @@ func TestInit_PenConnectsAndPulls(t *testing.T) {
 	if got := w.read("index.html"); got != "<p>hi</p>" {
 		t.Errorf("index.html = %q", got)
 	}
-	if got := w.read(".env.local"); got != "CODEPEN_ID="+id+"\n" {
-		t.Errorf(".env.local = %q", got)
+	if got := w.penID(); got != id {
+		t.Errorf("stored Pen id = %q, want %q", got, id)
 	}
 }
 
@@ -165,7 +165,7 @@ func TestInit_ForceSwitchesPen(t *testing.T) {
 	if r := w.run("init", "--force", other); r.code != 0 {
 		t.Fatalf("code %d: %s", r.code, r.stderr)
 	}
-	if got := w.read(".env.local"); got != "CODEPEN_ID="+other+"\n" || first == other {
-		t.Errorf(".env.local = %q", got)
+	if got := w.penID(); got != other || first == other {
+		t.Errorf("stored Pen id = %q, want %q", got, other)
 	}
 }

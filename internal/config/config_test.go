@@ -129,3 +129,33 @@ func TestKey_ReturnsReference(t *testing.T) {
 		t.Errorf("Key() = %q, %v", got, err)
 	}
 }
+
+func TestLoad_PenIDFromPenConfig(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		vars     map[string]string
+		expected string
+	}{
+		{name: "from the config file", vars: nil, expected: "PwWmgeN"},
+		{name: "env wins", vars: map[string]string{"CODEPEN_ID": "AbCdEfG"}, expected: "AbCdEfG"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(dir, "pen", ".codepen"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(dir, "pen", ".codepen"), "pen.config.json", `{"blocks":[],"id":"PwWmgeN"}`)
+			vars := map[string]string{"CODEPEN_DIR": "pen"}
+			for k, v := range tt.vars {
+				vars[k] = v
+			}
+			cfg, err := Load(dir, env(vars))
+			if err != nil || cfg.PenID != tt.expected {
+				t.Errorf("Load() PenID = %q, %v; want %q", cfg.PenID, err, tt.expected)
+			}
+		})
+	}
+}

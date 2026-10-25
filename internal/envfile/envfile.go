@@ -1,4 +1,4 @@
-// Package envfile reads and edits dotenv files (KEY=value lines).
+// Package envfile reads dotenv files (KEY=value lines).
 package envfile
 
 import (
@@ -100,38 +100,4 @@ func unquote(raw string) string {
 	}
 	before, _, _ := strings.Cut(raw, "#")
 	return strings.TrimSpace(before)
-}
-
-// Set writes KEY=value into the file at path, replacing the first KEY= line or
-// appending one. A new file gets mode 0600, since env files may hold secrets.
-func Set(path, key, value string) error {
-	if strings.ContainsAny(value, "\r\n") {
-		return fmt.Errorf("value for %q contains a line break", key)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("reading %q: %w", path, err)
-	}
-	text := replaceLine(string(data), key+"=", key+"="+value)
-	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
-		return fmt.Errorf("writing %q: %w", path, err)
-	}
-	return nil
-}
-
-// replaceLine swaps the first line starting with prefix for line, keeping its
-// line ending, or appends line when there is none.
-func replaceLine(text, prefix, line string) string {
-	lines := strings.SplitAfter(text, "\n")
-	for i, current := range lines {
-		if strings.HasPrefix(current, prefix) {
-			ending := current[len(strings.TrimRight(current, "\r\n")):]
-			lines[i] = line + ending
-			return strings.Join(lines, "")
-		}
-	}
-	if text != "" && !strings.HasSuffix(text, "\n") {
-		text += "\n"
-	}
-	return text + line + "\n"
 }

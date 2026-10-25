@@ -3,6 +3,7 @@
 package pen
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/diff"
+	"github.com/nocksock/codepen-cli/internal/penconfig"
 	"github.com/nocksock/codepen-cli/internal/ref"
 	"github.com/nocksock/codepen-cli/internal/tree"
 )
@@ -23,15 +25,15 @@ import (
 // Config is what a Mirror needs.
 type Config struct {
 	API      *codepen.Client
-	Root     string                // absolute directory to mirror
-	ID       string                // connected Pen; "" when none
-	SaveID   func(id string) error // required: records a newly connected Pen
-	Reporter Reporter              // required
+	Root     string   // absolute directory to mirror
+	ID       string   // connected Pen; "" when none
+	Reporter Reporter // required
 }
 
 // Mirror is a local directory mirrored to a Pen. Between calls it remembers the
 // remote head, so repeated pushes only talk to the API when something changed.
-// It is not safe for concurrent use.
+// The connected Pen's id is kept in the directory's .codepen/pen.config.json
+// (see penconfig); it is never pushed. It is not safe for concurrent use.
 type Mirror struct {
 	cfg        Config
 	id         string
@@ -68,7 +70,7 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 			return err
 		}
 	}
-	local, err := tree.Read(m.cfg.Root)
+	local, err := m.readShared()
 	if err != nil {
 		return err
 	}
@@ -96,10 +98,11 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 
 // create makes a Pen from the directory; an empty one gets CodePen's starter files.
 func (m *Mirror) create(ctx context.Context) error {
-	local, err := tree.Read(m.cfg.Root)
+	raw, err := tree.Read(m.cfg.Root)
 	if err != nil {
 		return err
 	}
+	local := penconfig.Local(raw)
 	created, err := m.cfg.API.CreatePen(ctx, codepen.NewPen{
 		Title:   filepath.Base(m.cfg.Root),
 		Changes: diff.Between(local, nil),
@@ -109,8 +112,9 @@ func (m *Mirror) create(ctx context.Context) error {
 	}
 	m.id, m.urls = created.ID, created.URLs
 	m.cfg.Reporter.Report(Created{URLs: created.URLs})
-	if err := m.cfg.SaveID(created.ID); err != nil {
-		return fmt.Errorf("saving Pen id %s: %w", created.ID, err)
+	// Recorded before the build settles, so a failure later can't lose the new Pen.
+	if err := m.recordID(raw); err != nil {
+		return err
 	}
 	if err := m.settle(ctx, created.Build); err != nil {
 		return err
@@ -139,18 +143,19 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 		*m = before
 		return err
 	}
-	if before.id != id {
-		if err := m.cfg.SaveID(id); err != nil {
-			*m = before
-			return fmt.Errorf("saving Pen id %s: %w", id, err)
-		}
-		m.cfg.Reporter.Report(Connected{URLs: m.urls})
-	}
-	local, err := readOrEmpty(m.cfg.Root)
+	raw, err := readOrEmpty(m.cfg.Root)
 	if err != nil {
+		*m = before
 		return err
 	}
-	return m.writeBack(ctx, local)
+	if err := m.recordID(raw); err != nil {
+		*m = before
+		return err
+	}
+	if before.id != id {
+		m.cfg.Reporter.Report(Connected{URLs: m.urls})
+	}
+	return m.writeBack(ctx, penconfig.Local(raw))
 }
 
 func (m *Mirror) target(penRef string) (string, error) {
@@ -160,7 +165,7 @@ func (m *Mirror) target(penRef string) (string, error) {
 	if m.id != "" {
 		return m.id, nil
 	}
-	return "", errors.New("no Pen to pull: pass a Pen id or URL, or set CODEPEN_ID")
+	return "", errors.New("no Pen to pull: pass a Pen id or URL")
 }
 
 // fetch loads the Pen's head and tracks it.
@@ -212,14 +217,47 @@ func (m *Mirror) settle(ctx context.Context, build codepen.Build) error {
 	return nil
 }
 
+// track remembers head and its files, with the config reduced to its shared part.
 func (m *Mirror) track(head string, files []codepen.File) {
 	m.head = head
-	m.remote = diff.ByPath(files)
+	m.remote = diff.ByPath(penconfig.Remote(files))
 	m.isTracking = true
 }
 
-// writeBack writes every tracked remote file that local lacks or differs from.
-// Ignored paths (.git, .env*, ...) are never written.
+// readShared reads the directory as it is compared with the Pen.
+func (m *Mirror) readShared() (tree.Snapshot, error) {
+	raw, err := tree.Read(m.cfg.Root)
+	if err != nil {
+		return nil, err
+	}
+	return penconfig.Local(raw), nil
+}
+
+// recordID stores the connected Pen's id in the local config, given the
+// directory's current (raw) files. It writes nothing when the id is there.
+func (m *Mirror) recordID(raw tree.Snapshot) error {
+	current := raw[penconfig.Path]
+	if penconfig.ID(current) == m.id {
+		return nil
+	}
+	return m.writeConfig(current)
+}
+
+// writeConfig writes data as the local config, with the connected Pen's id.
+func (m *Mirror) writeConfig(data []byte) error {
+	withID, err := penconfig.WithID(data, m.id)
+	if err != nil {
+		return fmt.Errorf("saving Pen id %s: %w", m.id, err)
+	}
+	if err := tree.Write(m.cfg.Root, penconfig.Path, bytes.NewReader(withID)); err != nil {
+		return fmt.Errorf("saving Pen id %s: %w", m.id, err)
+	}
+	return nil
+}
+
+// writeBack writes every tracked remote file that local (as returned by
+// readShared) lacks or differs from. Ignored paths (.git, .env*, ...) are
+// never written, and the config keeps the local id.
 func (m *Mirror) writeBack(ctx context.Context, local tree.Snapshot) error {
 	for _, p := range slices.Sorted(maps.Keys(m.remote)) {
 		if tree.IsIgnored(p) {
@@ -238,6 +276,9 @@ func (m *Mirror) writeBack(ctx context.Context, local tree.Snapshot) error {
 }
 
 func (m *Mirror) download(ctx context.Context, file codepen.File) error {
+	if file.Path == penconfig.Path && file.Content != nil {
+		return m.writeConfig([]byte(*file.Content))
+	}
 	if file.Content != nil {
 		return tree.Write(m.cfg.Root, file.Path, strings.NewReader(*file.Content))
 	}

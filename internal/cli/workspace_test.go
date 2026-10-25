@@ -17,6 +17,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/nocksock/codepen-cli/internal/codepen/codepentest"
+	"github.com/nocksock/codepen-cli/internal/penconfig"
 )
 
 func TestMain(m *testing.M) {
@@ -123,6 +124,12 @@ func (w *workspace) remove(p string) {
 	if err := os.RemoveAll(w.path(p)); err != nil {
 		w.t.Fatal(err)
 	}
+}
+
+// penID is the Pen id stored in the workspace's .codepen/pen.config.json.
+func (w *workspace) penID() string {
+	w.t.Helper()
+	return penconfig.ID([]byte(w.read(".codepen/pen.config.json")))
 }
 
 func (w *workspace) exists(p string) bool {
