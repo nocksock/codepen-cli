@@ -4,7 +4,7 @@ Mirror a local directory to a CodePen 2.0 Pen. A single Go binary.
 
 ```sh
 pen init [PEN]  # set up .env, .envrc and .gitignore here; with PEN, pull it too
-pen push        # push local files (creates a Pen + writes CODEPEN_ID to .env.local if unset)
+pen push        # push local files (creates a Pen if none is connected yet)
 pen pull        # download the Pen's files (never deletes local files)
 pen pull <PEN>  # connect this directory to PEN, then pull it
 pen sync        # push, then watch and push on every change
@@ -40,17 +40,18 @@ Both files are loaded by direnv via `.envrc`, and by `pen` itself as a fallback.
 CODEPEN_API_KEY=cp_user_…   # or a ref like "op://Private/CodePen/API Key", resolved with `op read`
 ```
 
-`.env.local` holds local state:
+`.env.local` holds local settings:
 
 ```sh
 CODEPEN_DIR=pen   # what to mirror (default: .)
-CODEPEN_ID=…      # written here on first push
 ```
+
+The connected Pen is kept as `"id"` in the mirrored directory's `.codepen/pen.config.json`, next to CodePen's own settings, so you can commit it and a clone knows its Pen. The `id` field is local only: it is never pushed, and a pull never replaces it, not even with the id a forked Pen brings along. A `CODEPEN_ID` environment variable overrides it.
 
 ## Behaviour
 
-- **pull `<PEN>`** takes a Pen id (`01a1…-…` or Classic `PwWmgeN`) or any URL that contains one: the editor URL, a public `/pen/`, `/full/`, `/details/` or embed URL, or a `?template=` URL. It writes the id to `CODEPEN_ID`, so later commands use it. The API only reaches your own Pens, so fork other people's on codepen.io first. Classic Pens can be pulled but not pushed.
-- **pull** without `<PEN>` and without `CODEPEN_ID` fails. Files are written atomically, and a remote path that would land outside the directory is refused.
+- **pull `<PEN>`** takes a Pen id (`01a1…-…` or Classic `PwWmgeN`) or any URL that contains one: the editor URL, a public `/pen/`, `/full/`, `/details/` or embed URL, or a `?template=` URL. It stores the id in `.codepen/pen.config.json`, so later commands use it. The API only reaches your own Pens, so fork other people's on codepen.io first. Classic Pens can be pulled but not pushed.
+- **pull** without `<PEN>` and without a connected Pen fails. Files are written atomically, and a remote path that would land outside the directory is refused.
 - **push** mirrors local → remote: changed and new files are uploaded, and remote files missing locally are deleted. It refuses to push an empty directory.
 - After every push, compiler patches (e.g. `.codepen/pen.config.json`, `tsconfig.json`) are written back locally.
 - Empty files are skipped because the API rejects empty content.

@@ -62,8 +62,8 @@ func TestPull_SwitchingNeedsForce(t *testing.T) {
 	if forced.code != 0 {
 		t.Fatalf("forced: code %d: %s", forced.code, forced.stderr)
 	}
-	if got := w.read(".env.local"); got != "CODEPEN_ID="+other+"\n" {
-		t.Errorf(".env.local = %q", got)
+	if got := w.penID(); got != other {
+		t.Errorf("stored Pen id = %q, want %q", got, other)
 	}
 	if got := w.read("b.js"); got != "2" {
 		t.Errorf("b.js = %q", got)

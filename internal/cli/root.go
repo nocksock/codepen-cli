@@ -16,7 +16,7 @@ var version string
 const usageFormat = `pen — mirror a local directory to a CodePen 2.0 Pen
 
   pen init [PEN]         set up .env, .envrc and .gitignore here; PEN pulls it
-  pen push [--force]     push local files (creates a Pen if CODEPEN_ID is unset)
+  pen push [--force]     push local files (creates a Pen if none is connected)
   pen pull [PEN]         download the Pen's files; PEN (id or URL) connects to it
   pen sync [--force]     push, then watch and push on every change
   pen info               show the Pen's details and local sync status
@@ -25,7 +25,7 @@ const usageFormat = `pen — mirror a local directory to a CodePen 2.0 Pen
 
 env (.env, .env.local):
   CODEPEN_API_KEY   key or 1Password ref, e.g. "op://Private/CodePen/API Key"
-  CODEPEN_ID        Pen id, written automatically on first push
+  CODEPEN_ID        Pen id; overrides the one kept in .codepen/pen.config.json
   CODEPEN_DIR       directory to mirror (default: .)
 
 --key      init: API key or 1Password ref for a new .env (default: %q)

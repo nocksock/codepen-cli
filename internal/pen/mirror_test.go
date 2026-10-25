@@ -12,12 +12,12 @@ import (
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/codepen/codepentest"
+	"github.com/nocksock/codepen-cli/internal/penconfig"
 )
 
 type recorder struct {
 	mu     sync.Mutex
 	events []Event
-	saved  []string
 }
 
 func (r *recorder) Report(e Event) {
@@ -26,18 +26,21 @@ func (r *recorder) Report(e Event) {
 	r.events = append(r.events, e)
 }
 
-func (r *recorder) saveID(id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.saved = append(r.saved, id)
-	return nil
-}
-
 func open(t *testing.T, api *codepentest.Server, root, id string) (*Mirror, *recorder) {
 	t.Helper()
 	rec := &recorder{}
 	client := codepen.New(codepentest.Key, codepen.WithBaseURL(api.URL()), codepen.WithPollInterval(time.Millisecond))
-	return Open(Config{API: client, Root: root, ID: id, SaveID: rec.saveID, Reporter: rec}), rec
+	return Open(Config{API: client, Root: root, ID: id, Reporter: rec}), rec
+}
+
+// localID is the Pen id stored in root's .codepen/pen.config.json.
+func localID(t *testing.T, root string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, ".codepen", "pen.config.json"))
+	if err != nil {
+		t.Fatalf("reading the local config: %v", err)
+	}
+	return penconfig.ID(data)
 }
 
 func writeFile(t *testing.T, root, path, content string) {
@@ -61,8 +64,8 @@ func TestMirror_Push_CreatesPen(t *testing.T) {
 	if err := m.Push(t.Context(), PushOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if len(rec.saved) != 1 || m.ID() != rec.saved[0] {
-		t.Fatalf("saved ids = %q, mirror id %q", rec.saved, m.ID())
+	if m.ID() == "" || localID(t, root) != m.ID() {
+		t.Fatalf("local config id = %q, mirror id %q", localID(t, root), m.ID())
 	}
 	if got := api.Files(m.ID())["/index.html"]; got != "<h1>x</h1>" {
 		t.Errorf("remote index.html = %q", got)
@@ -111,7 +114,8 @@ func TestMirror_Pull_SwitchingNeedsForce(t *testing.T) {
 	api := codepentest.Start(t)
 	first := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	second := api.Seed(codepentest.Seed{Files: map[string]string{"b.js": "2"}})
-	m, rec := open(t, api, t.TempDir(), first)
+	root := t.TempDir()
+	m, _ := open(t, api, root, first)
 
 	err := m.Pull(t.Context(), PullOptions{Ref: second})
 	if err == nil || !strings.Contains(err.Error(), "pass --force") {
@@ -120,8 +124,8 @@ func TestMirror_Pull_SwitchingNeedsForce(t *testing.T) {
 	if err := m.Pull(t.Context(), PullOptions{Ref: second, Force: true}); err != nil {
 		t.Fatal(err)
 	}
-	if m.ID() != second || len(rec.saved) != 1 || rec.saved[0] != second {
-		t.Errorf("id = %q, saved = %q", m.ID(), rec.saved)
+	if m.ID() != second || localID(t, root) != second {
+		t.Errorf("id = %q, local config id = %q", m.ID(), localID(t, root))
 	}
 }
 
@@ -192,11 +196,12 @@ func TestMirror_Pull_RestoresStateWhenSaveFails(t *testing.T) {
 	api := codepentest.Start(t)
 	first := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	second := api.Seed(codepentest.Seed{Files: map[string]string{"b.js": "2"}})
-	m, _ := open(t, api, t.TempDir(), first)
-	m.cfg.SaveID = func(string) error { return errors.New("disk full") }
+	root := t.TempDir()
+	writeFile(t, root, ".codepen/pen.config.json", "not json") // the id can't be stored
+	m, _ := open(t, api, root, first)
 
 	err := m.Pull(t.Context(), PullOptions{Ref: second, Force: true})
-	if err == nil || !strings.Contains(err.Error(), "disk full") {
+	if err == nil || !strings.Contains(err.Error(), "saving Pen id") {
 		t.Fatalf("Pull() error = %v", err)
 	}
 	if m.ID() != first || m.isTracking {
@@ -244,5 +249,52 @@ func TestMirror_Push_AfterCreate(t *testing.T) {
 	}
 	if got := api.Calls(`^PUT `); got != 1 {
 		t.Errorf("PUT calls = %d, want 1", got)
+	}
+}
+
+func TestMirror_IDStaysLocal(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	id := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	root := t.TempDir()
+	m, _ := open(t, api, root, "")
+	if err := m.Pull(t.Context(), PullOptions{Ref: id}); err != nil {
+		t.Fatal(err)
+	}
+	if got := localID(t, root); got != id {
+		t.Fatalf("local config id = %q, want %q", got, id)
+	}
+	if err := m.Push(t.Context(), PushOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := api.Calls(`^PUT `); got != 0 {
+		t.Errorf("PUT calls = %d: the local id must not count as a change", got)
+	}
+	writeFile(t, root, "a.js", "2")
+	if err := m.Push(t.Context(), PushOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if remote := api.Files(id)["/.codepen/pen.config.json"]; penconfig.ID([]byte(remote)) != "" {
+		t.Errorf("remote config = %q, the id was pushed", remote)
+	}
+	if got := localID(t, root); got != id {
+		t.Errorf("local config id after push = %q, want %q", got, id)
+	}
+}
+
+func TestMirror_Pull_IgnoresForeignIDInRemoteConfig(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	id := api.Seed(codepentest.Seed{Files: map[string]string{
+		"a.js":                     "1",
+		".codepen/pen.config.json": `{"blocks":[],"id":"someone-elses-pen"}`,
+	}})
+	root := t.TempDir()
+	m, _ := open(t, api, root, "")
+	if err := m.Pull(t.Context(), PullOptions{Ref: id}); err != nil {
+		t.Fatal(err)
+	}
+	if got := localID(t, root); got != id {
+		t.Errorf("local config id = %q, want %q (a fork's id must not win)", got, id)
 	}
 }
