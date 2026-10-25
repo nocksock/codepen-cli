@@ -30,6 +30,9 @@ func TestRun_UsageErrors(t *testing.T) {
 		{name: "unknown command", args: []string{"bogus"}, message: `unknown command "bogus"`},
 		{name: "unknown flag", args: []string{"push", "--bogus"}, message: "unknown flag: --bogus"},
 		{name: "too many args", args: []string{"pull", "a", "b"}, message: "accepts at most 1 arg"},
+		{name: "unknown completion shell", args: []string{"completion", "bogus"}, message: `"bogus"`},
+		{name: "extra completion arg", args: []string{"completion", "zsh", "extra"}, message: `"extra"`},
+		{name: "completion without shell", args: []string{"completion"}, message: "completion needs a shell"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

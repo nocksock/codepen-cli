@@ -62,8 +62,12 @@ func newRoot(a *app) *cobra.Command {
 		},
 		RunE: func(*cobra.Command, []string) error { return usageError{} },
 	}
+	// Before strictCompletion: Cobra's completion commands capture the writers.
+	root.SetOut(a.env.Stdout)
+	root.SetErr(a.env.Stderr)
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err: err} })
 	root.AddCommand(newInitCmd(a), newPushCmd(a), newPullCmd(a), newSyncCmd(a), newInfoCmd(a), newOpenCmd(a))
+	strictCompletion(root)
 	help := root.HelpFunc()
 	root.SetHelpFunc(func(c *cobra.Command, args []string) {
 		if c != root {
@@ -73,4 +77,23 @@ func newRoot(a *app) *cobra.Command {
 		fmt.Fprintln(c.OutOrStdout(), usageText())
 	})
 	return root
+}
+
+// strictCompletion makes Cobra's built-in completion command report bad
+// arguments as usage errors (exit 2) like every other command, instead of
+// printing help (exit 0) or a plain error (exit 1).
+func strictCompletion(root *cobra.Command) {
+	root.InitDefaultCompletionCmd()
+	for _, c := range root.Commands() {
+		if c.Name() != "completion" {
+			continue
+		}
+		c.Args = usageArgs(cobra.NoArgs)
+		c.RunE = func(*cobra.Command, []string) error {
+			return usageError{err: fmt.Errorf("completion needs a shell: bash, zsh, fish or powershell")}
+		}
+		for _, shell := range c.Commands() {
+			shell.Args = usageArgs(cobra.NoArgs)
+		}
+	}
 }

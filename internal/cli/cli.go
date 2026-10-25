@@ -52,7 +52,5 @@ func Run(ctx context.Context, args []string, env Env) int {
 	}
 	root := newRoot(&app{env: env})
 	root.SetArgs(args)
-	root.SetOut(env.Stdout)
-	root.SetErr(env.Stderr)
 	return report(env, root.ExecuteContext(ctx))
 }
