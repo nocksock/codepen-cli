@@ -19,7 +19,7 @@ import (
 type Snapshot map[string][]byte
 
 // tmpSuffix marks a file that Write has not finished yet.
-const tmpSuffix = ".cdpn-tmp"
+const tmpSuffix = ".pen-tmp"
 
 // ignoredNames are compared after foldName.
 var ignoredNames = map[string]bool{

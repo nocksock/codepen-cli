@@ -13,8 +13,8 @@ func TestRun_Help(t *testing.T) {
 		t.Fatalf("code = %d, want 0", r.code)
 	}
 	for _, command := range []string{"init", "push", "pull", "sync", "info", "open"} {
-		if !strings.Contains(r.stdout, "cdpn "+command) {
-			t.Errorf("usage lacks %q:\n%s", "cdpn "+command, r.stdout)
+		if !strings.Contains(r.stdout, "pen "+command) {
+			t.Errorf("usage lacks %q:\n%s", "pen "+command, r.stdout)
 		}
 	}
 }
@@ -41,7 +41,7 @@ func TestRun_UsageErrors(t *testing.T) {
 			if r.code != 2 {
 				t.Errorf("code = %d, want 2", r.code)
 			}
-			if !strings.Contains(r.stderr, "cdpn push") || !strings.Contains(r.stderr, tt.message) {
+			if !strings.Contains(r.stderr, "pen push") || !strings.Contains(r.stderr, tt.message) {
 				t.Errorf("stderr lacks usage or %q:\n%s", tt.message, r.stderr)
 			}
 		})
@@ -51,7 +51,7 @@ func TestRun_UsageErrors(t *testing.T) {
 // Not parallel: it swaps os.Args, which Cobra reads when handed nil args.
 func TestRun_NoCommandIgnoresProcessArgs(t *testing.T) {
 	saved := os.Args
-	os.Args = []string{"cdpn", "bogus"}
+	os.Args = []string{"pen", "bogus"}
 	t.Cleanup(func() { os.Args = saved })
 	r := newWorkspace(t, nil).run()
 	if want := usageText() + "\n"; r.code != 2 || r.stderr != want {
@@ -62,7 +62,7 @@ func TestRun_NoCommandIgnoresProcessArgs(t *testing.T) {
 func TestRun_Version(t *testing.T) {
 	t.Parallel()
 	r := newWorkspace(t, nil).run("--version")
-	if r.code != 0 || !strings.Contains(r.stdout, "cdpn version") {
+	if r.code != 0 || !strings.Contains(r.stdout, "pen version") {
 		t.Errorf("code %d, stdout %q", r.code, r.stdout)
 	}
 }

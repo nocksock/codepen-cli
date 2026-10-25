@@ -7,7 +7,7 @@ import (
 
 func TestExecRunner_StartMissingProgram(t *testing.T) {
 	t.Parallel()
-	err := execRunner{dir: t.TempDir()}.Start("cdpn-no-such-program")
+	err := execRunner{dir: t.TempDir()}.Start("pen-no-such-program")
 	if err == nil {
 		t.Error("expected an error for a missing program")
 	}

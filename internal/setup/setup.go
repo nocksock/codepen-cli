@@ -1,4 +1,4 @@
-// Package setup prepares a directory for cdpn (`cdpn init`).
+// Package setup prepares a directory for pen (`pen init`).
 package setup
 
 import (

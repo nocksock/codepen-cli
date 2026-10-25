@@ -1,10 +1,10 @@
 version: 2
-project_name: cdpn
+project_name: pen
 
 builds:
-  - id: cdpn
-    main: ./cmd/cdpn
-    binary: cdpn
+  - id: pen
+    main: ./cmd/pen
+    binary: pen
     env:
       - CGO_ENABLED=0
     flags:

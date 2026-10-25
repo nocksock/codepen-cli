@@ -1,4 +1,4 @@
-// Command cdpn mirrors a local directory to a CodePen 2.0 Pen.
+// Command pen mirrors a local directory to a CodePen 2.0 Pen.
 package main
 
 import (

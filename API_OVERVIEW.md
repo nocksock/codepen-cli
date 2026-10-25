@@ -84,7 +84,7 @@ Pages max out at 100 items. JSON body max 16 MB, multipart 120 MB, one file 30 M
 
 ## 💡 Ideas this unlocks
 
-- **Local dev → Pen mirror** (that's `cdpn`, in this repo)
+- **Local dev → Pen mirror** (that's `pen`, in this repo)
 - **CI publishes demos**: build step pushes `examples/*` → one Pen each, then deploys
 - **Collections as galleries**: auto-sync a folder of Pens into a Collection
 - **AI agent playground**: an agent writes files, reads `build.errors`, fixes, loops

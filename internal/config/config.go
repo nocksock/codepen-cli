@@ -1,4 +1,4 @@
-// Package config gathers cdpn's settings from the process environment and the
+// Package config gathers the pen CLI's settings from the process environment and the
 // env files in the working directory.
 package config
 
@@ -13,14 +13,14 @@ import (
 )
 
 const (
-	// SecretsFile holds the API key. cdpn only ever reads it: it may be a
+	// SecretsFile holds the API key. The CLI only ever reads it: it may be a
 	// 1Password Environments mount.
 	SecretsFile = ".env"
 	// StateFile holds local state such as CODEPEN_ID and wins over SecretsFile.
 	StateFile = ".env.local"
 )
 
-// Config is cdpn's settings for one working directory.
+// Config is the CLI's settings for one working directory.
 type Config struct {
 	KeyRef       string        // CODEPEN_API_KEY: a key or an op:// reference
 	Dir          string        // CODEPEN_DIR as an absolute path (default: the working directory)

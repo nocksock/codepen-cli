@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-// detach puts cmd in its own session so it outlives cdpn and its terminal.
+// detach puts cmd in its own session so it outlives the CLI and its terminal.
 func detach(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 }

@@ -33,7 +33,7 @@ func TestRender(t *testing.T) {
 		"versions    3, head 1 hour ago",
 		"build       Success",
 		"files       2 files, 5 B text + 1 binary",
-		"local       1 to upload, 1 to delete (cdpn push)",
+		"local       1 to upload, 1 to delete (pen push)",
 		"deployed    no",
 		"popularity  0",
 		"editor      https://e",
@@ -70,8 +70,8 @@ func TestRender_BuildAndLocalVariants(t *testing.T) {
 		{name: "head without build", status: Status{Pen: codepen.Pen{SavedVersion: &codepen.Version{}}}, want: "build       none"},
 		{name: "no head drops build", status: Status{}, absent: "build "},
 		{name: "single error", status: Status{Pen: codepen.Pen{SavedVersion: &codepen.Version{Build: &codepen.Build{Status: "Failure", Errors: []codepen.BuildError{{}}}}}}, want: "build       Failure, 1 error\n"},
-		{name: "uploads only", status: Status{Changes: codepen.ChangeSet{Uploads: []codepen.Upload{{Path: "/a.png"}}}}, want: "local       1 to upload (cdpn push)"},
-		{name: "deletes only", status: Status{Changes: codepen.ChangeSet{Deletes: []string{"/a"}}}, want: "local       1 to delete (cdpn push)"},
+		{name: "uploads only", status: Status{Changes: codepen.ChangeSet{Uploads: []codepen.Upload{{Path: "/a.png"}}}}, want: "local       1 to upload (pen push)"},
+		{name: "deletes only", status: Status{Changes: codepen.ChangeSet{Deletes: []string{"/a"}}}, want: "local       1 to delete (pen push)"},
 		{name: "single file", status: Status{Files: []codepen.File{{Path: "/a"}}}, want: "files       1 file, 0 B text + 1 binary"},
 	}
 	for _, tt := range tests {

@@ -1,4 +1,4 @@
-// Package info gathers and renders what `cdpn info` shows: the connected Pen's
+// Package info gathers and renders what `pen info` shows: the connected Pen's
 // details and how the local directory compares.
 package info
 
@@ -132,7 +132,7 @@ func local(changes codepen.ChangeSet) string {
 	if deletes > 0 {
 		parts = append(parts, fmt.Sprintf("%d to delete", deletes))
 	}
-	return strings.Join(parts, ", ") + " (cdpn push)"
+	return strings.Join(parts, ", ") + " (pen push)"
 }
 
 func deployed(d *codepen.Deployment) string {

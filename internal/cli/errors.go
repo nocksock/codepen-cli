@@ -9,7 +9,7 @@ import (
 	"github.com/nocksock/codepen-cli/internal/codepen"
 )
 
-// usageError is a mistake in how cdpn was called: exit 2 with the usage text.
+// usageError is a mistake in how the pen CLI was called: exit 2 with the usage text.
 type usageError struct{ err error }
 
 func (e usageError) Error() string {
@@ -21,7 +21,7 @@ func (e usageError) Error() string {
 
 func (e usageError) Unwrap() error { return e.err }
 
-var errNotConnected = errors.New("no Pen connected: run `cdpn push` or `cdpn pull <PEN>`")
+var errNotConnected = errors.New("no Pen connected: run `pen push` or `pen pull <PEN>`")
 
 // usageArgs turns the errors of an argument check into usage errors.
 func usageArgs(check cobra.PositionalArgs) cobra.PositionalArgs {
@@ -33,7 +33,7 @@ func usageArgs(check cobra.PositionalArgs) cobra.PositionalArgs {
 	}
 }
 
-// report prints err the way cdpn always has and returns the exit code.
+// report prints err the way the CLI always has and returns the exit code.
 func report(env Env, err error) int {
 	var usage usageError
 	switch {
@@ -55,7 +55,7 @@ func report(env Env, err error) int {
 func explain(err error) string {
 	switch {
 	case errors.Is(err, codepen.ErrConflict):
-		return "the Pen changed remotely (editor?). run `cdpn pull` first, or push with --force"
+		return "the Pen changed remotely (editor?). run `pen pull` first, or push with --force"
 	case errors.Is(err, codepen.ErrNotFound):
 		return "Pen not found. The API only reaches your own Pens (fork someone else's on codepen.io first)"
 	default:

@@ -7,9 +7,9 @@ ldflags := "-s -w -X github.com/nocksock/codepen-cli/internal/cli.version=" + ve
 default:
     @just --list
 
-# Build bin/cdpn (on PATH via .envrc)
+# Build bin/pen (on PATH via .envrc)
 build:
-    go build -trimpath -ldflags '{{ldflags}}' -o bin/cdpn ./cmd/cdpn
+    go build -trimpath -ldflags '{{ldflags}}' -o bin/pen ./cmd/pen
 
 # Run all tests with the race detector, in random order
 test:
@@ -23,6 +23,6 @@ lint:
 snapshot:
     if command -v goreleaser >/dev/null; then goreleaser release --snapshot --clean; else nix run nixpkgs#goreleaser -- release --snapshot --clean; fi
 
-# Install cdpn into $GOBIN
+# Install pen into $GOBIN
 install:
-    go install -trimpath -ldflags '{{ldflags}}' ./cmd/cdpn
+    go install -trimpath -ldflags '{{ldflags}}' ./cmd/pen

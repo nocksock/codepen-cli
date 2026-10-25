@@ -39,7 +39,7 @@ func TestInfo_CountsPendingChanges(t *testing.T) {
 	w.write("a.js", "changed")
 	w.write("c.js", "new")
 	w.remove("b.js")
-	matches(t, w.run("info").stdout, `^local +2 to upload, 1 to delete \(cdpn push\)$`)
+	matches(t, w.run("info").stdout, `^local +2 to upload, 1 to delete \(pen push\)$`)
 }
 
 func TestInfo_DeploymentURL(t *testing.T) {
@@ -60,7 +60,7 @@ func TestInfo_NeedsConnectedPen(t *testing.T) {
 func TestInfo_Help(t *testing.T) {
 	t.Parallel()
 	r := newWorkspace(t, nil).run("info", "--help")
-	if r.code != 0 || !strings.Contains(r.stdout, "cdpn info") {
+	if r.code != 0 || !strings.Contains(r.stdout, "pen info") {
 		t.Errorf("code %d, stdout %q, stderr %q", r.code, r.stdout, r.stderr)
 	}
 }

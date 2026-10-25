@@ -1,5 +1,5 @@
 // Package dotfile makes small line-based config files (.env, .envrc,
-// .gitignore) contain what cdpn needs without destroying what is there.
+// .gitignore) contain what the pen CLI needs without destroying what is there.
 package dotfile
 
 import (
@@ -21,7 +21,7 @@ const (
 	Kept
 )
 
-// String returns the word cdpn init prints: "created", "updated" or "kept".
+// String returns the word pen init prints: "created", "updated" or "kept".
 func (s Status) String() string {
 	switch s {
 	case Created:
