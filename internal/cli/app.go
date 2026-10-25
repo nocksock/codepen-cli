@@ -66,13 +66,18 @@ func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
 }
 
 // connected returns a client and config for commands that need a connected Pen.
+// It checks for one before resolving the key, which may prompt (1Password).
 func (a *app) connected(ctx context.Context) (*codepen.Client, config.Config, error) {
-	api, cfg, err := a.clientConfig(ctx)
+	cfg, err := a.config()
 	if err != nil {
 		return nil, cfg, err
 	}
 	if cfg.PenID == "" {
 		return nil, cfg, errNotConnected
+	}
+	api, err := a.client(ctx, cfg)
+	if err != nil {
+		return nil, cfg, err
 	}
 	return api, cfg, nil
 }
