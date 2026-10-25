@@ -33,8 +33,8 @@ func usageArgs(check cobra.PositionalArgs) cobra.PositionalArgs {
 	}
 }
 
-// exitCode reports err the way cdpn always has and returns the exit code.
-func exitCode(env Env, err error) int {
+// report prints err the way cdpn always has and returns the exit code.
+func report(env Env, err error) int {
 	var usage usageError
 	switch {
 	case err == nil:
