@@ -2,6 +2,7 @@ package cli
 
 import (
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
@@ -59,7 +60,7 @@ func TestInfo_NeedsConnectedPen(t *testing.T) {
 func TestInfo_Help(t *testing.T) {
 	t.Parallel()
 	r := newWorkspace(t, nil).run("info", "--help")
-	if r.code != 0 {
-		t.Errorf("code = %d, want 0; stderr %q", r.code, r.stderr)
+	if r.code != 0 || !strings.Contains(r.stdout, "cdpn info") {
+		t.Errorf("code %d, stdout %q, stderr %q", r.code, r.stdout, r.stderr)
 	}
 }
