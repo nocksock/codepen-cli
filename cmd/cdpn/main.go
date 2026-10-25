@@ -13,6 +13,10 @@ import (
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-ctx.Done()
+		stop() // a second Ctrl-C now kills the process instead of waiting for shutdown
+	}()
 	env, err := cli.System()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "✗ %v\n", err)
