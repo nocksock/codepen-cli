@@ -33,7 +33,8 @@ func IsSame(local []byte, remote codepen.File) bool {
 
 // Between lists what a push must send so remote matches local: changed and new
 // text files as Writes, binary ones as Uploads, and remote-only paths as
-// Deletes, except ignored paths, which are never local. Empty local files are skipped, since the API refuses empty content.
+// Deletes, except ignored paths, which are never local. Empty local files are
+// skipped, since the API refuses empty content.
 func Between(local tree.Snapshot, remote map[string]codepen.File) codepen.ChangeSet {
 	changes := codepen.ChangeSet{Writes: []codepen.Write{}, Deletes: []string{}, Uploads: []codepen.Upload{}}
 	for _, p := range slices.Sorted(maps.Keys(local)) {

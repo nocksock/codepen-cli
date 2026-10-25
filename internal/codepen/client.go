@@ -109,7 +109,7 @@ func (c *Client) send(ctx context.Context, method, path string, body *payload) (
 		}
 		if attempt == maxRetries || !retryable(method, status, err) {
 			if err != nil {
-				return nil, fmt.Errorf("%s %s: %w", method, path, err)
+				return nil, fmt.Errorf("%s %s: %w", method, path, withoutURL(err))
 			}
 			return resp, nil
 		}

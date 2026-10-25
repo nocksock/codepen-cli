@@ -45,6 +45,9 @@ func (a *app) syncPen(ctx context.Context, force bool) error {
 		}
 	}
 	push()
+	if ctx.Err() != nil {
+		return nil // interrupted during the first push
+	}
 	if urls := m.URLs(); urls.Editor != "" {
 		a.printf("editor  %s\npreview %s\n", urls.Editor, urls.Preview)
 	}

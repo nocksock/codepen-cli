@@ -11,6 +11,7 @@ cdpn sync        # push, then watch and push on every change
 cdpn info        # Pen details, build status, version count, local changes waiting to push
 cdpn open [editor|preview|live]  # open the Pen in the browser (default: editor)
 cdpn completion zsh              # shell completion (bash, zsh, fish, powershell)
+cdpn --version
 ```
 
 `--force` skips the version check and overwrites edits made in the CodePen editor. With `pull <PEN>` and `init <PEN>` it allows switching away from an already connected Pen.
@@ -53,7 +54,7 @@ CODEPEN_ID=…      # written here on first push
 - **push** mirrors local → remote: changed and new files are uploaded, and remote files missing locally are deleted. It refuses to push an empty directory.
 - After every push, compiler patches (e.g. `.codepen/pen.config.json`, `tsconfig.json`) are written back locally.
 - Empty files are skipped because the API rejects empty content.
-- Ignored: `.git`, `node_modules`, `.env*`, `.envrc`, `.DS_Store`. Ignored paths are never pushed, never written by pull (so a Pen can't plant `.git/hooks` or replace `.env`), and never deleted remotely.
+- Ignored, in any letter case: `.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store`. Ignored paths are never pushed, never written by pull (so a Pen can't plant `.git/hooks` or replace `.env`), and never deleted remotely.
 - In `sync`, a remote edit made while you're watching causes a 409. Run `cdpn pull` (or use `--force`). Besides file events, `sync` rescans every 5 s, so changes the OS failed to report are still pushed.
 - Reads are retried on network errors, 429 and 5xx; writes only on 429, since a failed write may already have been applied.
 - Exit codes: `0` ok, `1` error, `2` usage error.
