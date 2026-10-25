@@ -1,0 +1,39 @@
+version: "2"
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - misspell
+    - nilerr
+    - revive
+    - thelper
+    - unconvert
+  settings:
+    errcheck:
+      exclude-functions:
+        # Terminal output: there is nothing useful to do when it fails.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        # Closing what was only read. Closes after writes are checked in code.
+        - (io.ReadCloser).Close
+        - (io.Closer).Close
+        - (*os.Root).Close
+        - (mime/multipart.File).Close
+  exclusions:
+    rules:
+      # Test handlers and fixtures: a failed write or close fails the test anyway.
+      - path: _test\.go
+        linters:
+          - errcheck
+          - bodyclose
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/nocksock/codepen-cli
