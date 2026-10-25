@@ -104,6 +104,7 @@ func (m *Mirror) create(ctx context.Context) error {
 	created, err := m.cfg.API.CreatePen(ctx, codepen.NewPen{
 		Title:   filepath.Base(m.cfg.Root),
 		Changes: diff.Between(local, nil),
+		Starter: len(local) == 0,
 	})
 	if err != nil {
 		return err

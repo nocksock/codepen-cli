@@ -251,11 +251,12 @@ func TestClient_CreatePen(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		changes  codepen.ChangeSet
+		pen      codepen.NewPen
 		expected string
 	}{
-		{name: "with files", changes: codepen.ChangeSet{Writes: []codepen.Write{{Path: "/a.js", Content: "1"}}}, expected: `{"title":"work","files":[{"path":"/a.js","content":"1"}]}`},
-		{name: "empty means starter files", changes: codepen.ChangeSet{}, expected: `{"title":"work"}`},
+		{name: "with files", pen: codepen.NewPen{Title: "work", Changes: codepen.ChangeSet{Writes: []codepen.Write{{Path: "/a.js", Content: "1"}}}}, expected: `{"title":"work","files":[{"path":"/a.js","content":"1"}]}`},
+		{name: "no changes send an empty list", pen: codepen.NewPen{Title: "work"}, expected: `{"title":"work","files":[]}`},
+		{name: "starter files", pen: codepen.NewPen{Title: "work", Starter: true}, expected: `{"title":"work"}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -268,7 +269,7 @@ func TestClient_CreatePen(t *testing.T) {
 				w.WriteHeader(http.StatusCreated)
 				w.Write([]byte(`{"id":"p1","urls":{"editor":"https://e"},"build":{"id":"b1"}}`))
 			})
-			created, err := api.CreatePen(t.Context(), codepen.NewPen{Title: "work", Changes: tt.changes})
+			created, err := api.CreatePen(t.Context(), tt.pen)
 			if err != nil || created.ID != "p1" || created.Build.ID != "b1" || created.URLs.Editor != "https://e" {
 				t.Errorf("CreatePen() = %+v, %v", created, err)
 			}

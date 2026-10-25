@@ -81,6 +81,25 @@ func TestMirror_Push_CreatesPen(t *testing.T) {
 	}
 }
 
+func TestMirror_Push_CreatesPenFromEmptyFilesWithoutStarter(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	root := t.TempDir()
+	writeFile(t, root, "index.html", "")
+	m, _ := open(t, api, root, "")
+
+	if err := m.Push(t.Context(), PushOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := api.Files(m.ID())["/index.html"]; ok {
+		t.Error("the Pen got starter files although the directory has files")
+	}
+	data, err := os.ReadFile(filepath.Join(root, "index.html"))
+	if err != nil || len(data) != 0 {
+		t.Errorf("local index.html = %q, %v; want it left empty", data, err)
+	}
+}
+
 func TestMirror_Push_NothingChanged(t *testing.T) {
 	t.Parallel()
 	api := codepentest.Start(t)
