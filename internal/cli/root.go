@@ -13,15 +13,15 @@ import (
 // -ldflags "-X github.com/nocksock/codepen-cli/internal/cli.version=v1.2.3"
 var version string
 
-const usageFormat = `cdpn — mirror a local directory to a CodePen 2.0 Pen
+const usageFormat = `pen — mirror a local directory to a CodePen 2.0 Pen
 
-  cdpn init [PEN]         set up .env, .envrc and .gitignore here; PEN pulls it
-  cdpn push [--force]     push local files (creates a Pen if CODEPEN_ID is unset)
-  cdpn pull [PEN]         download the Pen's files; PEN (id or URL) connects to it
-  cdpn sync [--force]     push, then watch and push on every change
-  cdpn info               show the Pen's details and local sync status
-  cdpn open [TARGET]      open editor (default), preview or live in the browser
-  cdpn completion SHELL   print a completion script (bash, zsh, fish, powershell)
+  pen init [PEN]         set up .env, .envrc and .gitignore here; PEN pulls it
+  pen push [--force]     push local files (creates a Pen if CODEPEN_ID is unset)
+  pen pull [PEN]         download the Pen's files; PEN (id or URL) connects to it
+  pen sync [--force]     push, then watch and push on every change
+  pen info               show the Pen's details and local sync status
+  pen open [TARGET]      open editor (default), preview or live in the browser
+  pen completion SHELL   print a completion script (bash, zsh, fish, powershell)
 
 env (.env, .env.local):
   CODEPEN_API_KEY   key or 1Password ref, e.g. "op://Private/CodePen/API Key"
@@ -49,7 +49,7 @@ func buildVersion() string {
 
 func newRoot(a *app) *cobra.Command {
 	root := &cobra.Command{
-		Use:           "cdpn",
+		Use:           "pen",
 		Short:         "mirror a local directory to a CodePen 2.0 Pen",
 		Version:       buildVersion(),
 		SilenceUsage:  true,

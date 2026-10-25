@@ -115,7 +115,7 @@ func TestInit_Help(t *testing.T) {
 	t.Parallel()
 	w := newWorkspace(t, nil)
 	r := w.run("init", "--help")
-	if r.code != 0 || !strings.Contains(r.stdout, "cdpn init [PEN]") {
+	if r.code != 0 || !strings.Contains(r.stdout, "pen init [PEN]") {
 		t.Errorf("code %d, stdout %q", r.code, r.stdout)
 	}
 	if w.exists(".env") {

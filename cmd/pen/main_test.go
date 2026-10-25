@@ -13,16 +13,16 @@ import (
 var binary string
 
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "cdpn-smoke-")
+	dir, err := os.MkdirTemp("", "pen-smoke-")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	binary = filepath.Join(dir, "cdpn")
+	binary = filepath.Join(dir, "pen")
 	build := exec.Command("go", "build", "-o", binary, ".")
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "building cdpn:", err)
+		fmt.Fprintln(os.Stderr, "building pen:", err)
 		os.Exit(1)
 	}
 	code := m.Run()
@@ -38,7 +38,7 @@ func TestExitCodes(t *testing.T) {
 		code   int
 		output string
 	}{
-		{name: "help", args: []string{"--help"}, code: 0, output: "cdpn push"},
+		{name: "help", args: []string{"--help"}, code: 0, output: "pen push"},
 		{name: "unknown command", args: []string{"bogus"}, code: 2, output: `unknown command "bogus"`},
 		{name: "missing key", args: []string{"push"}, code: 1, output: "CODEPEN_API_KEY is not set"},
 	}
@@ -58,7 +58,7 @@ func TestExitCodes(t *testing.T) {
 				t.Fatal(err)
 			}
 			if code != tt.code || !strings.Contains(string(out), tt.output) {
-				t.Errorf("cdpn %v: exit %d, want %d; output:\n%s", tt.args, code, tt.code, out)
+				t.Errorf("pen %v: exit %d, want %d; output:\n%s", tt.args, code, tt.code, out)
 			}
 		})
 	}

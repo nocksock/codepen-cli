@@ -49,7 +49,7 @@ func (a *app) initDir(ctx context.Context, opts initOptions) error {
 		a.printf("  direnv allowed\n")
 	}
 	if opts.penRef == "" {
-		a.printf("next: `cdpn push` creates a Pen, `cdpn pull <PEN>` connects an existing one\n")
+		a.printf("next: `pen push` creates a Pen, `pen pull <PEN>` connects an existing one\n")
 		return nil
 	}
 	m, _, err := a.mirror(ctx)

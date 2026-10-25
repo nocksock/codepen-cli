@@ -1,4 +1,4 @@
-// Package cli is cdpn's command line: it parses arguments, wires the packages
+// Package cli is the pen command line: it parses arguments, wires the packages
 // together, and turns their results and errors into output and exit codes.
 package cli
 
@@ -10,7 +10,7 @@ import (
 	"runtime"
 )
 
-// Env is everything cdpn takes from the outside world. Tests build their own.
+// Env is everything the pen CLI takes from the outside world. Tests build their own.
 type Env struct {
 	Dir    string                      // working directory, absolute
 	Getenv func(string) (string, bool) // process environment
@@ -44,7 +44,7 @@ func System() (Env, error) {
 	}, nil
 }
 
-// Run executes cdpn with args (without the program name) and returns the exit
+// Run executes the pen CLI with args (without the program name) and returns the exit
 // code: 0 success, 1 runtime or API error, 2 usage error.
 func Run(ctx context.Context, args []string, env Env) int {
 	if args == nil {

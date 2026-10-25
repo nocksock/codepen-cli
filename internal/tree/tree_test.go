@@ -23,7 +23,7 @@ func TestIsIgnored(t *testing.T) {
 		{path: "/.env.production", expected: true},
 		{path: "/.envrc", expected: true},
 		{path: "/img/.DS_Store", expected: true},
-		{path: "/a.js.cdpn-tmp", expected: true},
+		{path: "/a.js.pen-tmp", expected: true},
 		{path: "/.environment.js", expected: false},
 		// Case-insensitive filesystems (macOS, Windows) resolve these to the real names.
 		{path: "/.GIT/config", expected: true},
@@ -153,7 +153,7 @@ func TestWrite_RefusesBadPaths(t *testing.T) {
 		{name: "env variant", path: "/.env.production"},
 		{name: "node modules", path: "/node_modules/x.js"},
 		{name: "ignored after cleaning", path: "/a/../.git/config"},
-		{name: "temp file", path: "/a.js.cdpn-tmp"},
+		{name: "temp file", path: "/a.js.pen-tmp"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

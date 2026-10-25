@@ -56,7 +56,7 @@ func newWorkspace(t *testing.T, files map[string]string) *workspace {
 	return w
 }
 
-// connected returns a workspace connected to a fresh Pen via `cdpn pull`.
+// connected returns a workspace connected to a fresh Pen via `pen pull`.
 func connected(t *testing.T, seed codepentest.Seed) (*workspace, string) {
 	t.Helper()
 	w := newWorkspace(t, nil)
