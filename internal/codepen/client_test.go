@@ -86,17 +86,19 @@ func TestClient_ErrorsNeverContainTheKey(t *testing.T) {
 		client func(t *testing.T) *codepen.Client
 	}{
 		{name: "api error", client: func(t *testing.T) *codepen.Client {
-			return newClient(t, func(w http.ResponseWriter, r *http.Request) {
+			t.Helper()
+			return newClient(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusUnauthorized)
 				w.Write([]byte(`{"code":"UNAUTHENTICATED","message":"bad key"}`))
 			})
 		}},
 		{name: "unreadable answer", client: func(t *testing.T) *codepen.Client {
-			return newClient(t, func(w http.ResponseWriter, r *http.Request) {
+			t.Helper()
+			return newClient(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.Write([]byte(`not json`))
 			})
 		}},
-		{name: "network error", client: func(t *testing.T) *codepen.Client {
+		{name: "network error", client: func(*testing.T) *codepen.Client {
 			return codepen.New(testKey,
 				codepen.WithHTTPClient(&http.Client{Transport: failingTransport{}}),
 				codepen.WithBackoff(time.Millisecond),

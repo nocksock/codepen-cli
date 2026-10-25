@@ -28,9 +28,7 @@ func start(t *testing.T, dir string, opts Options) <-chan struct{} {
 	}
 	t.Cleanup(func() {
 		cancel()
-		for range changes {
-			// wait until the watcher has shut down
-		}
+		drain(changes) // wait until the watcher has shut down
 	})
 	return changes
 }
@@ -131,13 +129,13 @@ func TestChanges(t *testing.T) {
 
 	t.Run("follows a symlinked root", func(t *testing.T) {
 		t.Parallel()
-		real := t.TempDir()
+		target := t.TempDir()
 		link := filepath.Join(t.TempDir(), "link")
-		if err := os.Symlink(real, link); err != nil {
+		if err := os.Symlink(target, link); err != nil {
 			t.Fatal(err)
 		}
 		changes := start(t, link, fast)
-		write(t, filepath.Join(real, "a.js"), "1")
+		write(t, filepath.Join(target, "a.js"), "1")
 		expectSignal(t, changes)
 	})
 
@@ -180,9 +178,7 @@ func TestTracker_RescanFallback(t *testing.T) {
 	go tr.run(ctx, out)
 	t.Cleanup(func() {
 		cancel()
-		for range out {
-			// wait until the run loop has shut down
-		}
+		drain(out) // wait until the run loop has shut down
 	})
 
 	write(t, filepath.Join(dir, "a.js"), "1")
@@ -195,5 +191,12 @@ func TestTracker_IsSkipped_root(t *testing.T) {
 	tr := &tracker{dir: dir, opts: Options{Skip: func(string) bool { return true }}.withDefaults()}
 	if tr.isSkipped(dir) {
 		t.Error("the root itself must never be skipped")
+	}
+}
+
+// drain receives from ch until it is closed.
+func drain[T any](ch <-chan T) {
+	for ok := true; ok; {
+		_, ok = <-ch
 	}
 }
