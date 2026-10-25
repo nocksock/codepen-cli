@@ -63,8 +63,11 @@ func (a *app) openPen(ctx context.Context, target string) error {
 	if href == "" {
 		return fmt.Errorf("the Pen has no %s URL (not deployed?)", target)
 	}
+	name, args, err := browser.Command(a.env.GOOS, href)
+	if err != nil {
+		return err
+	}
 	a.printf("%s\n", href)
-	name, args := browser.Command(a.env.GOOS, href)
 	if err := a.env.Runner.Start(name, args...); err != nil {
 		a.printf("could not launch a browser; open %s\n", href)
 	}

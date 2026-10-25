@@ -76,3 +76,15 @@ func TestOpen_BrowserLaunchFails(t *testing.T) {
 		t.Errorf("code %d, stdout %q, stderr %q, want stdout %q", r.code, r.stdout, r.stderr, want)
 	}
 }
+
+func TestOpen_RefusesNonHTTPURLs(t *testing.T) {
+	t.Parallel()
+	w, _ := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}, Deployment: &codepen.Deployment{URL: "file:///etc/passwd"}})
+	r := w.run("open", "live")
+	if r.code != 1 || !strings.Contains(r.stderr, "not an http(s) url") || r.stdout != "" {
+		t.Errorf("code %d, stdout %q, stderr %q", r.code, r.stdout, r.stderr)
+	}
+	if calls := w.runner.Calls(); len(calls) != 0 {
+		t.Errorf("calls = %q, want none", calls)
+	}
+}
