@@ -375,3 +375,14 @@ Review findings that changed behaviour or API compared to the sections above:
   - `exitCode` is named `report`.
 - **Lint policy:** errcheck ignores terminal output, closes of read-only resources, and test files. Closes after writes are checked in code.
 - **Dependencies:** `golang.org/x/sync` v0.20.0 and `golang.org/x/sys` v0.47.0, the newest versions that need only Go 1.25.
+- **Final review:**
+  - Ignored names match regardless of letter case and trailing dots or spaces, because case-insensitive filesystems resolve `/.GIT/config` to `.git/config`.
+  - `browser.Command` opens only http(s) URLs and returns an error otherwise. On Windows it uses `rundll32 url.dll,FileProtocolHandler`, not `cmd /c start`.
+  - Bad `completion` arguments exit 2.
+  - `sync` stays quiet when interrupted during its first push, and a second Ctrl-C force-quits.
+- **Smaller API differences from the sections above:**
+  - `cli.System()` returns `(Env, error)`.
+  - `dotfile.Ensure` takes a `perm`.
+  - `codepen.WithBackoff` exists, for tests.
+  - Root help is the Node-style usage text; subcommands use Cobra's help.
+  - Usage errors, including `open <unknown target>`, print the usage text to stderr and exit 2.
