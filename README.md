@@ -30,3 +30,7 @@ worktree below it.
     just unworktree dir *args       # Usage: just unworktree <dir> [--force]
     just worktree dir branch *paths # e.g. just worktree apps-web feat/web apps/web packages/ui
     just worktrees                  # Show current worktrees
+
+## Go development
+
+Before any Go coding, review, debugging, troubleshooting, or setup task, load the `samber/cc-skills-golang@golang-how-to` skill first — it routes to whichever other Go skills the task needs.

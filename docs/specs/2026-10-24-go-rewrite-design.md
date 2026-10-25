@@ -342,3 +342,36 @@ no shared state.
 
 - Publishing: GitHub remote, CI (test, lint, govulncheck), release workflow, brew tap.
 - Watching the remote side (pull on remote edits).
+
+## Changes made during implementation
+
+Review findings that changed behaviour or API compared to the sections above:
+
+- **Ignored paths go neither way.** `tree.Write` refuses ignored paths (`.git`, `.env*`, `.envrc`, `node_modules`, …), so a Pen can't plant `.git/hooks` or replace `.env`. `pen.writeBack` skips them on pull, and `diff.Between` never plans a remote delete for them.
+- **Stricter `tree`:**
+  - `cleanName` refuses `//`, `\`, NUL, a trailing `/`, `/.` and anything outside the root.
+  - `Read` goes through `os.Root`, so a symlinked root is followed.
+  - Temp files are created with `O_EXCL`.
+  - A replaced file keeps its mode.
+- **`dotfile.Ensure` uses `O_EXCL`**, so it never follows a dangling symlink or races another creator.
+- **`envfile` parses like Node's `util.parseEnv`:** quoted values may span lines, and an unquoted value ends at `#`. `Set` refuses values containing line breaks.
+- **`human` rounds like JS** (`toFixed`, `Math.round` on negative halves).
+- **`ref` reads URL paths percent-encoded**, as the WHATWG `URL.pathname` does.
+- **`codepen` client:**
+  - A huge `Retry-After` can't overflow.
+  - ctx errors are wrapped with the request.
+  - `Download` errors drop the URL's query and userinfo.
+  - `CreatePen` sends `files: []` for upload-only trees, as Node does.
+- **`pen` safety:**
+  - `Created` is reported before `SaveID`, and a failed save names the new Pen's id.
+  - `Pull` restores its state if the fetch or `SaveID` fails.
+- **`watch`:**
+  - The root is resolved with `EvalSymlinks`, so a symlinked root no longer makes the watcher deaf.
+  - A vanished directory doesn't abort the walk.
+  - Watcher errors re-add the tree.
+- **`cli`:**
+  - `init` gained `--force`; Node passed it through to pull.
+  - The browser is started in its own session (`Setsid`), like Node's `detached: true`.
+  - `exitCode` is named `report`.
+- **Lint policy:** errcheck ignores terminal output, closes of read-only resources, and test files. Closes after writes are checked in code.
+- **Dependencies:** `golang.org/x/sync` v0.20.0 and `golang.org/x/sys` v0.47.0, the newest versions that need only Go 1.25.
