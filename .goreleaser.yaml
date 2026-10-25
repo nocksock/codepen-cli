@@ -1,0 +1,39 @@
+version: 2
+project_name: cdpn
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: cdpn
+    main: ./cmd/cdpn
+    binary: cdpn
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/nocksock/codepen-cli/internal/cli.version={{ .Version }}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  disable: true
+
+release:
+  # The repository is private and has no remote yet. Publishing is a follow-up bean.
+  disable: true

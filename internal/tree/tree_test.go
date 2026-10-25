@@ -65,10 +65,10 @@ func TestRead(t *testing.T) {
 
 func TestRead_SymlinkedRoot(t *testing.T) {
 	t.Parallel()
-	real := t.TempDir()
-	write(t, real, "src/app.js", "1")
+	target := t.TempDir()
+	write(t, target, "src/app.js", "1")
 	link := filepath.Join(t.TempDir(), "link")
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
 	got, err := Read(link)
