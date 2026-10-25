@@ -19,7 +19,6 @@ linters:
         - fmt.Fprintln
         # Closing what was only read. Closes after writes are checked in code.
         - (io.ReadCloser).Close
-        - (io.Closer).Close
         - (*os.Root).Close
         - (mime/multipart.File).Close
   exclusions:
