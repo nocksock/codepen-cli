@@ -117,15 +117,19 @@ func (c *Client) WriteFiles(ctx context.Context, id string, changes ChangeSet, e
 }
 
 // Download opens the content of a binary file. The caller closes it. The key
-// is not sent: file URLs may point at another host. Errors name the URL
-// without query or userinfo, which may carry signed tokens.
+// is not sent: file URLs may point at another host. Only http(s) URLs are
+// fetched, and reading fails past the size limit (see WithMaxDownload). Errors
+// name the URL without query or userinfo, which may carry signed tokens.
 func (c *Client) Download(ctx context.Context, fileURL string) (io.ReadCloser, error) {
 	shown := redact(fileURL)
+	if u, err := url.Parse(fileURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, fmt.Errorf("downloading %q: not an http(s) URL", shown)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("downloading %q: %w", shown, withoutURL(err))
 	}
-	resp, err := c.http.Do(req)
+	resp, err := c.files.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("downloading %q: %w", shown, withoutURL(err))
 	}
@@ -133,8 +137,39 @@ func (c *Client) Download(ctx context.Context, fileURL string) (io.ReadCloser, e
 		resp.Body.Close()
 		return nil, fmt.Errorf("downloading %q: %s", shown, resp.Status)
 	}
-	return resp.Body, nil
+	tooLarge := fmt.Errorf("downloading %q: larger than %d bytes", shown, c.maxSize)
+	if resp.ContentLength > c.maxSize {
+		resp.Body.Close()
+		return nil, tooLarge
+	}
+	return &capped{body: resp.Body, left: c.maxSize, err: tooLarge}, nil
 }
+
+// capped reads body until more than left bytes arrive, then fails with err
+// instead of quietly cutting the file short.
+type capped struct {
+	body io.ReadCloser
+	left int64
+	err  error
+}
+
+func (r *capped) Read(p []byte) (int, error) {
+	if r.left < 0 {
+		return 0, r.err
+	}
+	// One byte more than allowed tells a file of exactly left bytes from a larger one.
+	if int64(len(p)) > r.left+1 {
+		p = p[:r.left+1]
+	}
+	n, err := r.body.Read(p)
+	r.left -= int64(n)
+	if r.left < 0 {
+		return 0, r.err
+	}
+	return n, err
+}
+
+func (r *capped) Close() error { return r.body.Close() }
 
 // redact keeps the scheme, host and path of a URL.
 func redact(raw string) string {
