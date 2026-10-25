@@ -60,7 +60,19 @@ func TestOpen_NeedsConnectedPen(t *testing.T) {
 func TestOpen_Help(t *testing.T) {
 	t.Parallel()
 	r := newWorkspace(t, nil).run("open", "--help")
-	if r.code != 0 {
-		t.Errorf("code = %d, want 0; stderr %q", r.code, r.stderr)
+	if r.code != 0 || !strings.Contains(r.stdout, "open [editor|preview|live]") {
+		t.Errorf("code %d, stdout %q, stderr %q", r.code, r.stdout, r.stderr)
+	}
+}
+
+func TestOpen_BrowserLaunchFails(t *testing.T) {
+	t.Parallel()
+	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	w.runner.missing["xdg-open"] = true
+	url := w.api.URLs(id).Editor
+	r := w.run("open")
+	want := url + "\ncould not launch a browser; open " + url + "\n"
+	if r.code != 0 || r.stdout != want || r.stderr != "" {
+		t.Errorf("code %d, stdout %q, stderr %q, want stdout %q", r.code, r.stdout, r.stderr, want)
 	}
 }

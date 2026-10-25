@@ -3,12 +3,16 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/nocksock/codepen-cli/internal/browser"
 	"github.com/nocksock/codepen-cli/internal/codepen"
 )
+
+// targetNames lists the targets in the order they are offered.
+var targetNames = []string{"editor", "preview", "live"}
 
 // targets pick a URL of a Pen; "" means the Pen has none.
 var targets = map[string]func(codepen.Pen) string{
@@ -24,9 +28,9 @@ var targets = map[string]func(codepen.Pen) string{
 
 func newOpenCmd(a *app) *cobra.Command {
 	return &cobra.Command{
-		Use:       "open [editor|preview|live]",
+		Use:       "open [" + strings.Join(targetNames, "|") + "]",
 		Short:     "open editor (default), preview or live in the browser",
-		ValidArgs: []string{"editor", "preview", "live"},
+		ValidArgs: targetNames,
 		Args:      usageArgs(cobra.MatchAll(cobra.MaximumNArgs(1), knownTarget)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target := "editor"
@@ -40,7 +44,7 @@ func newOpenCmd(a *app) *cobra.Command {
 
 func knownTarget(_ *cobra.Command, args []string) error {
 	if len(args) == 1 && targets[args[0]] == nil {
-		return fmt.Errorf("unknown target %q: use editor, preview or live", args[0])
+		return fmt.Errorf("unknown target %q: use %s", args[0], strings.Join(targetNames, ", "))
 	}
 	return nil
 }

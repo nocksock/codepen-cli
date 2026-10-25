@@ -29,8 +29,8 @@ env (.env, .env.local):
   CODEPEN_DIR       directory to mirror (default: .)
 
 --key      init: API key or 1Password ref for a new .env (default: %q)
---force    push/sync: skip the version check and overwrite remote edits
-           pull: switch to PEN although another Pen is connected
+--force    init/pull: switch to PEN although another Pen is connected
+           push/sync: skip the version check and overwrite remote edits
 --version  print the version`
 
 func usageText() string {

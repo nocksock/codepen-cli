@@ -11,6 +11,7 @@ import (
 
 func newInitCmd(a *app) *cobra.Command {
 	var key string
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "init [PEN]",
 		Short: "set up .env, .envrc and .gitignore here; PEN pulls it",
@@ -20,17 +21,24 @@ func newInitCmd(a *app) *cobra.Command {
 			if len(args) == 1 {
 				penRef = args[0]
 			}
-			return a.initDir(cmd.Context(), key, penRef)
+			return a.initDir(cmd.Context(), initOptions{key: key, penRef: penRef, force: force})
 		},
 	}
 	cmd.Flags().StringVar(&key, "key", setup.DefaultKey, "API key or 1Password ref for a new .env")
+	cmd.Flags().BoolVar(&force, "force", false, "switch to PEN although another Pen is connected")
 	return cmd
+}
+
+type initOptions struct {
+	key    string
+	penRef string
+	force  bool
 }
 
 // initDir scaffolds the working directory, allows direnv and, given a Pen,
 // connects to it and pulls it.
-func (a *app) initDir(ctx context.Context, key, penRef string) error {
-	results, err := setup.Scaffold(a.env.Dir, key)
+func (a *app) initDir(ctx context.Context, opts initOptions) error {
+	results, err := setup.Scaffold(a.env.Dir, opts.key)
 	for _, r := range results {
 		a.printf("  %-7s %s\n", r.Status, r.File)
 	}
@@ -40,7 +48,7 @@ func (a *app) initDir(ctx context.Context, key, penRef string) error {
 	if setup.AllowDirenv(ctx, a.env.Runner) {
 		a.printf("  direnv allowed\n")
 	}
-	if penRef == "" {
+	if opts.penRef == "" {
 		a.printf("next: `cdpn push` creates a Pen, `cdpn pull <PEN>` connects an existing one\n")
 		return nil
 	}
@@ -48,5 +56,5 @@ func (a *app) initDir(ctx context.Context, key, penRef string) error {
 	if err != nil {
 		return err
 	}
-	return m.Pull(ctx, pen.PullOptions{Ref: penRef})
+	return m.Pull(ctx, pen.PullOptions{Ref: opts.penRef, Force: opts.force})
 }

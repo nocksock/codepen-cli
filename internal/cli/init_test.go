@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -106,6 +107,65 @@ func TestInit_PenConnectsAndPulls(t *testing.T) {
 		t.Errorf("index.html = %q", got)
 	}
 	if got := w.read(".env.local"); got != "CODEPEN_ID="+id+"\n" {
+		t.Errorf(".env.local = %q", got)
+	}
+}
+
+func TestInit_Help(t *testing.T) {
+	t.Parallel()
+	w := newWorkspace(t, nil)
+	r := w.run("init", "--help")
+	if r.code != 0 || !strings.Contains(r.stdout, "cdpn init [PEN]") {
+		t.Errorf("code %d, stdout %q", r.code, r.stdout)
+	}
+	if w.exists(".env") {
+		t.Error("--help created .env")
+	}
+	if calls := w.runner.Calls(); len(calls) != 0 {
+		t.Errorf("calls = %q, want none", calls)
+	}
+}
+
+func TestInit_ScaffoldErrorStopsBeforeDirenv(t *testing.T) {
+	t.Parallel()
+	w := newWorkspace(t, nil)
+	if err := os.Mkdir(w.path(".gitignore"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r := w.run("init")
+	if r.code != 1 || r.stdout != "  created .env\n  created .envrc\n" ||
+		!strings.Contains(r.stderr, "is a directory") {
+		t.Errorf("code %d, stdout %q, stderr %q", r.code, r.stdout, r.stderr)
+	}
+	if calls := w.runner.Calls(); len(calls) != 0 {
+		t.Errorf("calls = %q, want none", calls)
+	}
+}
+
+func TestInit_PenUsesKeyFromFreshEnv(t *testing.T) {
+	t.Parallel()
+	w := newWorkspace(t, nil)
+	delete(w.vars, "CODEPEN_API_KEY")
+	id := w.api.Seed(codepentest.Seed{Files: map[string]string{"index.html": "<p>hi</p>"}})
+	if r := w.run("init", "--key", codepentest.Key, id); r.code != 0 {
+		t.Fatalf("code %d: %s", r.code, r.stderr)
+	}
+	if got := w.read("index.html"); got != "<p>hi</p>" {
+		t.Errorf("index.html = %q", got)
+	}
+}
+
+func TestInit_ForceSwitchesPen(t *testing.T) {
+	t.Parallel()
+	w, first := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	other := w.api.Seed(codepentest.Seed{Files: map[string]string{"b.js": "2"}})
+	if r := w.run("init", other); r.code != 1 {
+		t.Fatalf("without --force: code %d, want 1", r.code)
+	}
+	if r := w.run("init", "--force", other); r.code != 0 {
+		t.Fatalf("code %d: %s", r.code, r.stderr)
+	}
+	if got := w.read(".env.local"); got != "CODEPEN_ID="+other+"\n" || first == other {
 		t.Errorf(".env.local = %q", got)
 	}
 }
