@@ -42,6 +42,14 @@ func TestRender(t *testing.T) {
 				"  build Success\n",
 		},
 		{name: "downloaded", event: pen.Downloaded{Path: "/a.js"}, want: "  ↓ /a.js\n"},
+		{
+			name: "remote strings are cleaned",
+			event: pen.Built{Build: codepen.Build{
+				Status: "Failed\x1b[0m",
+				Errors: []codepen.BuildError{{Path: "/a\x1b[2J.js", Message: "line\nfake"}},
+			}},
+			want: "  ✗ /a\\x1b[2J.js line\\nfake\n  build Failed\\x1b[0m\n",
+		},
 		{name: "created", event: pen.Created{URLs: urls}, want: "created https://codepen.io/editor/x\n"},
 		{name: "connected", event: pen.Connected{URLs: urls}, want: "connected https://codepen.io/editor/x\n"},
 	}
