@@ -25,7 +25,7 @@ const usageFormat = `pen — mirror a local directory to a CodePen 2.0 Pen
 
 env (.env, .env.local):
   CODEPEN_API_KEY   key or 1Password ref, e.g. "op://Private/CodePen/API Key"
-  CODEPEN_ID        Pen id; overrides the one kept in .codepen/pen.config.json
+  CODEPEN_ID        Pen id; overrides the one kept in .codepen.config.json
   CODEPEN_DIR       directory to mirror (default: .)
 
 --key      init: API key or 1Password ref for a new .env (default: %q)

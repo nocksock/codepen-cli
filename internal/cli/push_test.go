@@ -27,10 +27,10 @@ func TestPush_CreatesPen(t *testing.T) {
 	}
 	id := w.penID()
 	if id == "" {
-		t.Fatalf("no Pen id stored in .codepen/pen.config.json: %q", w.read(".codepen/pen.config.json"))
+		t.Fatalf("no Pen id stored in .codepen.config.json: %q", w.read(".codepen.config.json"))
 	}
 	if w.exists(".env.local") {
-		t.Error("push wrote .env.local; the id belongs in .codepen/pen.config.json")
+		t.Error("push wrote .env.local; the id belongs in .codepen.config.json")
 	}
 	files := w.api.Files(id)
 	if files["/index.html"] != "<h1>x</h1>" || files["/src/app.js"] != "1" {
@@ -115,7 +115,6 @@ func TestPush_SkipsEmptyAndIgnoredFiles(t *testing.T) {
 func TestPush_RefusesToEmptyPen(t *testing.T) {
 	t.Parallel()
 	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
-	w.vars["CODEPEN_ID"] = id // deleting .codepen also deletes the stored connection
 	w.remove("a.js")
 	w.remove(".codepen")
 	r := w.run("push")

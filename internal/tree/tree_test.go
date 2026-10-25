@@ -24,6 +24,8 @@ func TestIsIgnored(t *testing.T) {
 		{path: "/.envrc", expected: true},
 		{path: "/img/.DS_Store", expected: true},
 		{path: "/a.js.pen-tmp", expected: true},
+		{path: "/.codepen.config.json", expected: true},
+		{path: "/.codepen/pen.config.json", expected: false},
 		{path: "/.environment.js", expected: false},
 		// Case-insensitive filesystems (macOS, Windows) resolve these to the real names.
 		{path: "/.GIT/config", expected: true},
@@ -154,6 +156,7 @@ func TestWrite_RefusesBadPaths(t *testing.T) {
 		{name: "node modules", path: "/node_modules/x.js"},
 		{name: "ignored after cleaning", path: "/a/../.git/config"},
 		{name: "temp file", path: "/a.js.pen-tmp"},
+		{name: "local pen config", path: "/.codepen.config.json"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -171,6 +174,17 @@ func TestWrite_RefusesBadPaths(t *testing.T) {
 				t.Errorf("Write(%q) left %d entries in the root", tt.path, len(entries))
 			}
 		})
+	}
+}
+
+func TestWriteLocal(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := WriteLocal(root, "/.codepen.config.json", strings.NewReader("x")); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteLocal(root, "/../escape.txt", strings.NewReader("x")); err == nil {
+		t.Error("WriteLocal() wrote outside the root")
 	}
 }
 

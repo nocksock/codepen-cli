@@ -144,10 +144,10 @@ func TestLoad_PenIDFromPenConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
-			if err := os.MkdirAll(filepath.Join(dir, "pen", ".codepen"), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Join(dir, "pen"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-			writeFile(t, filepath.Join(dir, "pen", ".codepen"), "pen.config.json", `{"blocks":[],"id":"PwWmgeN"}`)
+			writeFile(t, filepath.Join(dir, "pen"), ".codepen.config.json", `{"id":"PwWmgeN"}`)
 			vars := map[string]string{"CODEPEN_DIR": "pen"}
 			for k, v := range tt.vars {
 				vars[k] = v

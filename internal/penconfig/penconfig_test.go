@@ -1,10 +1,9 @@
 package penconfig
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
-
-	"github.com/nocksock/codepen-cli/internal/codepen"
-	"github.com/nocksock/codepen-cli/internal/tree"
 )
 
 func TestID(t *testing.T) {
@@ -60,56 +59,37 @@ func TestWithID_RefusesInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestShared(t *testing.T) {
+func TestSave(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-		isKept   bool
-	}{
-		{name: "drops the id", input: `{"blocks":[],"id":"P1"}`, expected: "{\n  \"blocks\": []\n}\n", isKept: true},
-		{name: "normalises formatting", input: `{"blocks":[]}`, expected: "{\n  \"blocks\": []\n}\n", isKept: true},
-		{name: "only an id is not shared", input: `{"id":"P1"}`, isKept: false},
-		{name: "invalid json stays as is", input: `nope`, expected: "nope", isKept: true},
+	root := filepath.Join(t.TempDir(), "new")
+	if id, err := Read(root); err != nil || id != "" {
+		t.Fatalf("Read(missing) = %q, %v", id, err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got, isKept := Shared([]byte(tt.input))
-			if isKept != tt.isKept || (isKept && string(got) != tt.expected) {
-				t.Errorf("Shared(%q) = %q, %v; want %q, %v", tt.input, got, isKept, tt.expected, tt.isKept)
-			}
-		})
+	if err := Save(root, "P1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, Name), []byte(`{"id":"P1","keep":true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(root, "P2"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, Name))
+	if err != nil || string(data) != "{\n  \"id\": \"P2\",\n  \"keep\": true\n}\n" {
+		t.Errorf("config = %q, %v", data, err)
+	}
+	if id, err := Read(root); err != nil || id != "P2" {
+		t.Errorf("Read() = %q, %v", id, err)
 	}
 }
 
-func TestLocal(t *testing.T) {
+func TestSave_RefusesInvalidJSON(t *testing.T) {
 	t.Parallel()
-	local := tree.Snapshot{"/a.js": []byte("1"), Path: []byte(`{"blocks":[],"id":"P1"}`)}
-	got := Local(local)
-	if string(got[Path]) != "{\n  \"blocks\": []\n}\n" || string(got["/a.js"]) != "1" {
-		t.Errorf("Local() = %q", got)
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, Name), []byte("nope"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if string(local[Path]) != `{"blocks":[],"id":"P1"}` {
-		t.Error("Local() changed its input")
-	}
-	idOnly := Local(tree.Snapshot{Path: []byte(`{"id":"P1"}`)})
-	if _, ok := idOnly[Path]; ok {
-		t.Errorf("Local() kept a config that only holds the id: %q", idOnly)
-	}
-}
-
-func TestRemote(t *testing.T) {
-	t.Parallel()
-	config := `{"blocks":[],"id":"someone-else"}`
-	other := "x"
-	files := []codepen.File{{Path: Path, Content: &config}, {Path: "/a.js", Content: &other}}
-	got := Remote(files)
-	if *got[0].Content != "{\n  \"blocks\": []\n}\n" || *got[1].Content != "x" {
-		t.Errorf("Remote() = %q, %q", *got[0].Content, *got[1].Content)
-	}
-	if config != `{"blocks":[],"id":"someone-else"}` {
-		t.Error("Remote() changed its input")
+	if err := Save(root, "P1"); err == nil {
+		t.Error("Save() over invalid json succeeded")
 	}
 }

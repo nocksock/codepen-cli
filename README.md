@@ -46,16 +46,16 @@ CODEPEN_API_KEY=cp_user_…   # or a ref like "op://Private/CodePen/API Key", re
 CODEPEN_DIR=pen   # what to mirror (default: .)
 ```
 
-The connected Pen is kept as `"id"` in the mirrored directory's `.codepen/pen.config.json`, next to CodePen's own settings, so you can commit it and a clone knows its Pen. The `id` field is local only: it is never pushed, and a pull never replaces it, not even with the id a forked Pen brings along. A `CODEPEN_ID` environment variable overrides it.
+The connected Pen is kept as `"id"` in `.codepen.config.json` at the top of the mirrored directory, so you can commit it and a clone knows its Pen. The file is local only: it is never pushed, and a pull never writes it, not even when a Pen carries one. A `CODEPEN_ID` environment variable overrides it.
 
 ## Behaviour
 
-- **pull `<PEN>`** takes a Pen id (`01a1…-…` or Classic `PwWmgeN`) or any URL that contains one: the editor URL, a public `/pen/`, `/full/`, `/details/` or embed URL, or a `?template=` URL. It stores the id in `.codepen/pen.config.json`, so later commands use it. The API only reaches your own Pens, so fork other people's on codepen.io first. Classic Pens can be pulled but not pushed.
+- **pull `<PEN>`** takes a Pen id (`01a1…-…` or Classic `PwWmgeN`) or any URL that contains one: the editor URL, a public `/pen/`, `/full/`, `/details/` or embed URL, or a `?template=` URL. It stores the id in `.codepen.config.json`, so later commands use it. The API only reaches your own Pens, so fork other people's on codepen.io first. Classic Pens can be pulled but not pushed.
 - **pull** without `<PEN>` and without a connected Pen fails. Files are written atomically, and a remote path that would land outside the directory is refused.
 - **push** mirrors local → remote: changed and new files are uploaded, and remote files missing locally are deleted. It refuses to push an empty directory.
 - After every push, compiler patches (e.g. `.codepen/pen.config.json`, `tsconfig.json`) are written back locally.
 - Empty files are skipped because the API rejects empty content.
-- Ignored, in any letter case: `.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store`. Ignored paths are never pushed, never written by pull (so a Pen can't plant `.git/hooks` or replace `.env`), and never deleted remotely.
+- Ignored, in any letter case: `.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store`, `.codepen.config.json`. Ignored paths are never pushed, never written by pull (so a Pen can't plant `.git/hooks` or replace `.env`), and never deleted remotely.
 - In `sync`, a remote edit made while you're watching causes a 409. Run `pen pull` (or use `--force`). Besides file events, `sync` rescans every 5 s, so changes the OS failed to report are still pushed.
 - Reads are retried on network errors, 429 and 5xx; writes only on 429, since a failed write may already have been applied.
 - Exit codes: `0` ok, `1` error, `2` usage error.
