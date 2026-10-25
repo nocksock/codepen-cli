@@ -21,22 +21,32 @@ type Snapshot map[string][]byte
 // tmpSuffix marks a file that Write has not finished yet.
 const tmpSuffix = ".cdpn-tmp"
 
+// ignoredNames are compared after foldName.
 var ignoredNames = map[string]bool{
-	".git": true, "node_modules": true, ".env": true, ".envrc": true, ".DS_Store": true,
+	".git": true, "node_modules": true, ".env": true, ".envrc": true, ".ds_store": true,
 }
 
 // IsIgnored reports whether path ("/a/b") is never mirrored: VCS and
 // dependency folders, env files (secrets and local state) and unfinished writes.
+// Names match the way case-insensitive filesystems (macOS, Windows) resolve
+// them, so "/.GIT/config" is ignored as much as "/.git/config".
 func IsIgnored(path string) bool {
-	if strings.HasSuffix(path, tmpSuffix) {
+	if strings.HasSuffix(foldName(path), tmpSuffix) {
 		return true
 	}
 	for _, part := range strings.Split(path, "/") {
-		if ignoredNames[part] || strings.HasPrefix(part, ".env.") {
+		name := foldName(part)
+		if ignoredNames[name] || strings.HasPrefix(name, ".env.") {
 			return true
 		}
 	}
 	return false
+}
+
+// foldName is the name a case-insensitive filesystem would open: lowercased,
+// without the trailing dots and spaces Windows drops.
+func foldName(name string) string {
+	return strings.TrimRight(strings.ToLower(name), ". ")
 }
 
 // Read returns every regular, non-ignored file below root. Symlinks inside the
