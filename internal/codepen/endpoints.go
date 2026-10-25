@@ -69,18 +69,19 @@ func total(link string, items int) int {
 	return page
 }
 
-// NewPen is what CreatePen sends. Empty Changes give CodePen's starter files.
+// NewPen is what CreatePen sends.
 type NewPen struct {
 	Title   string
 	Changes ChangeSet
+	Starter bool // ask for CodePen's starter files instead of Changes
 }
 
 // CreatePen creates a Pen.
 func (c *Client) CreatePen(ctx context.Context, pen NewPen) (Created, error) {
-	// No changes at all means CodePen's starter files; any upload still
-	// sends a (possibly empty) list, as the Node client did.
+	// Leaving out the list gives the starter files; anything else sends a
+	// (possibly empty) list, as the Node client did.
 	var files *[]change
-	if !pen.Changes.IsEmpty() {
+	if !pen.Starter {
 		list := pen.Changes.wire()
 		files = &list
 	}
