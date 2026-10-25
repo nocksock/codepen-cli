@@ -63,7 +63,7 @@ func newRoot(a *app) *cobra.Command {
 		RunE: func(*cobra.Command, []string) error { return usageError{} },
 	}
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err: err} })
-	root.AddCommand(newInitCmd(a), newPushCmd(a), newPullCmd(a), newInfoCmd(a), newOpenCmd(a))
+	root.AddCommand(newInitCmd(a), newPushCmd(a), newPullCmd(a), newSyncCmd(a), newInfoCmd(a), newOpenCmd(a))
 	help := root.HelpFunc()
 	root.SetHelpFunc(func(c *cobra.Command, args []string) {
 		if c != root {
