@@ -20,6 +20,7 @@ const (
 	defaultPollInterval = 2 * time.Second
 	defaultBackoff      = 200 * time.Millisecond
 	requestTimeout      = 30 * time.Second
+	defaultMaxDownload  = 100 << 20 // bytes
 )
 
 // Client talks to the API with one key. It is safe for concurrent use.
@@ -28,7 +29,9 @@ type Client struct {
 	baseURL string
 	poll    time.Duration
 	backoff time.Duration
-	http    *http.Client
+	http    *http.Client // API calls
+	files   *http.Client // downloads, which may take longer than one API call
+	maxSize int64        // bytes a download may have
 }
 
 // Option configures a Client.
@@ -49,19 +52,29 @@ func WithBackoff(d time.Duration) Option {
 	return func(c *Client) { c.backoff = d }
 }
 
-// WithHTTPClient replaces the HTTP client (default: 30s timeout).
+// WithHTTPClient replaces the HTTP client for API calls and downloads. The
+// default allows 30s per API call, and 30s until a download's headers arrive.
 func WithHTTPClient(h *http.Client) Option {
-	return func(c *Client) { c.http = h }
+	return func(c *Client) { c.http, c.files = h, h }
+}
+
+// WithMaxDownload sets how many bytes a download may have (default: 100 MiB).
+func WithMaxDownload(n int64) Option {
+	return func(c *Client) { c.maxSize = n }
 }
 
 // New returns a client that authenticates with key.
 func New(key string, opts ...Option) *Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = requestTimeout
 	c := &Client{
 		key:     key,
 		baseURL: DefaultBaseURL,
 		poll:    defaultPollInterval,
 		backoff: defaultBackoff,
-		http:    &http.Client{Timeout: requestTimeout},
+		http:    &http.Client{Transport: transport, Timeout: requestTimeout},
+		files:   &http.Client{Transport: transport},
+		maxSize: defaultMaxDownload,
 	}
 	for _, opt := range opts {
 		opt(c)

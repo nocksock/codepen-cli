@@ -366,6 +366,51 @@ func TestClient_Download_Status(t *testing.T) {
 	}
 }
 
+func TestClient_Download_SizeLimit(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Has("chunked") {
+			w.(http.Flusher).Flush() // no Content-Length: the limit applies while reading
+		}
+		w.Write([]byte(strings.TrimPrefix(r.URL.Path, "/")))
+	}))
+	t.Cleanup(srv.Close)
+	api := codepen.New("k", codepen.WithMaxDownload(4))
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{name: "at the limit", url: srv.URL + "/1234"},
+		{name: "over the limit", url: srv.URL + "/12345", wantErr: true},
+		{name: "chunked at the limit", url: srv.URL + "/1234?chunked"},
+		{name: "chunked over the limit", url: srv.URL + "/12345?chunked", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			body, err := api.Download(t.Context(), tt.url)
+			if err == nil {
+				defer body.Close()
+				_, err = io.ReadAll(body)
+			}
+			if (err != nil) != tt.wantErr || (err != nil && !strings.Contains(err.Error(), "larger than 4 bytes")) {
+				t.Errorf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestClient_Download_OnlyHTTP(t *testing.T) {
+	t.Parallel()
+	for _, u := range []string{"file:///etc/passwd", "ftp://host/x", "/raw/x"} {
+		_, err := codepen.New("k").Download(t.Context(), u)
+		if err == nil || !strings.Contains(err.Error(), "not an http(s) URL") {
+			t.Errorf("Download(%q) err = %v", u, err)
+		}
+	}
+}
+
 func TestClient_CreatePen_OnlyUploadsSendsEmptyFileList(t *testing.T) {
 	t.Parallel()
 	api := newClient(t, func(w http.ResponseWriter, r *http.Request) {
