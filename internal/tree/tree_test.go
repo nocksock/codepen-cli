@@ -25,6 +25,15 @@ func TestIsIgnored(t *testing.T) {
 		{path: "/img/.DS_Store", expected: true},
 		{path: "/a.js.cdpn-tmp", expected: true},
 		{path: "/.environment.js", expected: false},
+		// Case-insensitive filesystems (macOS, Windows) resolve these to the real names.
+		{path: "/.GIT/config", expected: true},
+		{path: "/sub/.Git/hooks/pre-commit", expected: true},
+		{path: "/.Env", expected: true},
+		{path: "/.ENV.local", expected: true},
+		{path: "/Node_Modules/dep.js", expected: true},
+		// Windows drops trailing dots and spaces from names.
+		{path: "/.git./config", expected: true},
+		{path: "/.env ", expected: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
@@ -137,6 +146,8 @@ func TestWrite_RefusesBadPaths(t *testing.T) {
 		{name: "no leading slash", path: "a.txt"},
 		{name: "git hook", path: "/.git/hooks/pre-commit"},
 		{name: "git config", path: "/.git/config"},
+		{name: "git config in other case", path: "/.GIT/config"},
+		{name: "env in other case", path: "/.Env"},
 		{name: "env", path: "/.env"},
 		{name: "envrc", path: "/.envrc"},
 		{name: "env variant", path: "/.env.production"},
