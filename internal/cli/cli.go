@@ -54,5 +54,5 @@ func Run(ctx context.Context, args []string, env Env) int {
 	root.SetArgs(args)
 	root.SetOut(env.Stdout)
 	root.SetErr(env.Stderr)
-	return exitCode(env, root.ExecuteContext(ctx))
+	return report(env, root.ExecuteContext(ctx))
 }

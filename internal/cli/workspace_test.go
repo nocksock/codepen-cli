@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -73,10 +74,11 @@ type result struct {
 }
 
 func (w *workspace) env(stdout, stderr io.Writer) Env {
+	vars := maps.Clone(w.vars) // a running session must not read a map the test mutates
 	return Env{
 		Dir: w.dir,
 		Getenv: func(name string) (string, bool) {
-			v, ok := w.vars[name]
+			v, ok := vars[name]
 			return v, ok
 		},
 		Stdout: stdout,
@@ -164,11 +166,12 @@ type session struct {
 	done   chan int
 	once   sync.Once
 	code   int
+	t      *testing.T
 }
 
 func (w *workspace) start(args ...string) *session {
 	ctx, cancel := context.WithCancel(context.Background())
-	s := &session{out: &lockedBuffer{}, cancel: cancel, done: make(chan int, 1)}
+	s := &session{out: &lockedBuffer{}, cancel: cancel, done: make(chan int, 1), t: w.t}
 	go func() { s.done <- Run(ctx, args, w.env(s.out, s.out)) }()
 	w.t.Cleanup(func() { s.stop() })
 	return s
@@ -178,7 +181,11 @@ func (w *workspace) start(args ...string) *session {
 func (s *session) stop() int {
 	s.once.Do(func() {
 		s.cancel()
-		s.code = <-s.done
+		select {
+		case s.code = <-s.done:
+		case <-time.After(5 * time.Second):
+			s.t.Error("command did not stop within 5s of cancellation")
+		}
 	})
 	return s.code
 }

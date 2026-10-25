@@ -39,13 +39,22 @@ func (a *app) client(ctx context.Context, cfg config.Config) (*codepen.Client, e
 	return codepen.New(key, opts...), nil
 }
 
-// mirror opens the Mirror for the working directory.
-func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
+// clientConfig loads the settings and an API client for them.
+func (a *app) clientConfig(ctx context.Context) (*codepen.Client, config.Config, error) {
 	cfg, err := a.config()
 	if err != nil {
 		return nil, cfg, err
 	}
 	api, err := a.client(ctx, cfg)
+	if err != nil {
+		return nil, cfg, err
+	}
+	return api, cfg, nil
+}
+
+// mirror opens the Mirror for the working directory.
+func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
+	api, cfg, err := a.clientConfig(ctx)
 	if err != nil {
 		return nil, cfg, err
 	}
@@ -61,11 +70,7 @@ func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
 
 // connected returns a client and config for commands that need a connected Pen.
 func (a *app) connected(ctx context.Context) (*codepen.Client, config.Config, error) {
-	cfg, err := a.config()
-	if err != nil {
-		return nil, cfg, err
-	}
-	api, err := a.client(ctx, cfg)
+	api, cfg, err := a.clientConfig(ctx)
 	if err != nil {
 		return nil, cfg, err
 	}

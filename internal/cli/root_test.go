@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -41,6 +42,33 @@ func TestRun_UsageErrors(t *testing.T) {
 				t.Errorf("stderr lacks usage or %q:\n%s", tt.message, r.stderr)
 			}
 		})
+	}
+}
+
+// Not parallel: it swaps os.Args, which Cobra reads when handed nil args.
+func TestRun_NoCommandIgnoresProcessArgs(t *testing.T) {
+	saved := os.Args
+	os.Args = []string{"cdpn", "bogus"}
+	t.Cleanup(func() { os.Args = saved })
+	r := newWorkspace(t, nil).run()
+	if want := usageText() + "\n"; r.code != 2 || r.stderr != want {
+		t.Errorf("code %d, stderr %q, want exactly the usage text", r.code, r.stderr)
+	}
+}
+
+func TestRun_Version(t *testing.T) {
+	t.Parallel()
+	r := newWorkspace(t, nil).run("--version")
+	if r.code != 0 || !strings.Contains(r.stdout, "cdpn version") {
+		t.Errorf("code %d, stdout %q", r.code, r.stdout)
+	}
+}
+
+func TestRun_CompletionBash(t *testing.T) {
+	t.Parallel()
+	r := newWorkspace(t, nil).run("completion", "bash")
+	if r.code != 0 || strings.TrimSpace(r.stdout) == "" {
+		t.Errorf("code %d, stdout %q", r.code, r.stdout)
 	}
 }
 
