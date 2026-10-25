@@ -17,7 +17,7 @@ func newSyncCmd(a *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "push, then watch and push on every change",
-		Args:  usageArgs(cobra.NoArgs),
+		Args:  noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return a.syncPen(cmd.Context(), force)
 		},

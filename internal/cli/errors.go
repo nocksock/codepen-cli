@@ -25,6 +25,14 @@ func (e usageError) Unwrap() error { return e.err }
 
 var errNotConnected = errors.New("no Pen connected: run `pen push` or `pen pull <PEN>`")
 
+// noArgs refuses any argument, with the same wording for every command.
+func noArgs(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return usageError{err: fmt.Errorf("%s takes no arguments", cmd.CommandPath())}
+	}
+	return nil
+}
+
 // usageArgs turns the errors of an argument check into usage errors.
 func usageArgs(check cobra.PositionalArgs) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
@@ -53,7 +61,8 @@ func report(env Env, err error) int {
 	}
 }
 
-// explain turns the API errors people run into into advice.
+// explain turns the API errors people run into into advice. Other errors may
+// quote the API or a subprocess, so each of their lines is cleaned.
 func explain(err error) string {
 	switch {
 	case errors.Is(err, codepen.ErrConflict):

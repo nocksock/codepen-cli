@@ -30,8 +30,11 @@ func TestRun_UsageErrors(t *testing.T) {
 		{name: "unknown command", args: []string{"bogus"}, message: `unknown command "bogus"`},
 		{name: "unknown flag", args: []string{"push", "--bogus"}, message: "unknown flag: --bogus"},
 		{name: "too many args", args: []string{"pull", "a", "b"}, message: "accepts at most 1 arg"},
-		{name: "unknown completion shell", args: []string{"completion", "bogus"}, message: `"bogus"`},
-		{name: "extra completion arg", args: []string{"completion", "zsh", "extra"}, message: `"extra"`},
+		{name: "unknown completion shell", args: []string{"completion", "bogus"}, message: `unknown shell "bogus"`},
+		{name: "extra completion arg", args: []string{"completion", "zsh", "extra"}, message: "pen completion zsh takes no arguments"},
+		{name: "push takes no args", args: []string{"push", "x"}, message: "pen push takes no arguments"},
+		{name: "sync takes no args", args: []string{"sync", "x"}, message: "pen sync takes no arguments"},
+		{name: "info takes no args", args: []string{"info", "x"}, message: "pen info takes no arguments"},
 		{name: "completion without shell", args: []string{"completion"}, message: "completion needs a shell"},
 	}
 	for _, tt := range tests {

@@ -13,7 +13,7 @@ func newInfoCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "info",
 		Short: "show the Pen's details and local sync status",
-		Args:  usageArgs(cobra.NoArgs),
+		Args:  noArgs,
 		RunE:  func(cmd *cobra.Command, _ []string) error { return a.showInfo(cmd.Context()) },
 	}
 }
