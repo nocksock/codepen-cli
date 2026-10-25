@@ -1,26 +1,58 @@
-// Package penconfig keeps the connected Pen's id in .codepen/pen.config.json.
-//
-// That file is also a file of the Pen: CodePen's compiler writes it and it is
-// pushed and pulled like any other. The "id" field is local only, so it never
-// goes up, a pull can't replace it, and a forked Pen can't bring someone
-// else's id along. Shared turns the file into what both sides compare and
-// upload; WithID puts the local id back.
+// Package penconfig keeps the connected Pen's id in .codepen.config.json, at
+// the top of the mirrored directory. The file is local: tree ignores it, so it
+// is never pushed and a pull can't replace it.
 package penconfig
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"maps"
+	"io/fs"
+	"os"
+	"path/filepath"
 
-	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/tree"
 )
 
-// Path is the config file's path inside a Pen.
-const Path = "/.codepen/pen.config.json"
+// Name is the config file's name inside the mirrored directory.
+const Name = ".codepen.config.json"
 
 const idKey = "id"
+
+// Read returns the Pen id stored in root, or "" when there is none.
+func Read(root string) (string, error) {
+	data, err := read(root)
+	if err != nil {
+		return "", err
+	}
+	return ID(data), nil
+}
+
+// Save stores id in root's config, keeping any other fields there.
+func Save(root, id string) error {
+	data, err := read(root)
+	if err != nil {
+		return err
+	}
+	withID, err := WithID(data, id)
+	if err != nil {
+		return fmt.Errorf("%s: %w", Name, err)
+	}
+	return tree.WriteLocal(root, "/"+Name, bytes.NewReader(withID))
+}
+
+func read(root string) ([]byte, error) {
+	file := filepath.Join(root, Name)
+	data, err := os.ReadFile(file)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading %q: %w", file, err)
+	}
+	return data, nil
+}
 
 // ID returns the Pen id stored in data, or "" when there is none.
 func ID(data []byte) string {
@@ -39,7 +71,7 @@ func ID(data []byte) string {
 func WithID(data []byte, id string) ([]byte, error) {
 	fields, err := decode(data)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", Path, err)
+		return nil, err
 	}
 	value, err := json.Marshal(id)
 	if err != nil {
@@ -47,62 +79,6 @@ func WithID(data []byte, id string) ([]byte, error) {
 	}
 	fields[idKey] = value
 	return encode(fields)
-}
-
-// Shared returns the part of data that belongs to the Pen: everything but the
-// id, in one canonical formatting so both sides compare equal. isKept is false
-// when nothing but the id is left. Data that isn't a JSON object is returned
-// unchanged.
-func Shared(data []byte) (shared []byte, isKept bool) {
-	fields, err := decode(data)
-	if err != nil {
-		return data, true
-	}
-	delete(fields, idKey)
-	if len(fields) == 0 {
-		return nil, false
-	}
-	shared, err = encode(fields)
-	if err != nil {
-		return data, true
-	}
-	return shared, true
-}
-
-// Local returns a copy of a local snapshot with the config file reduced to
-// its shared part.
-func Local(local tree.Snapshot) tree.Snapshot {
-	data, ok := local[Path]
-	if !ok {
-		return local
-	}
-	out := maps.Clone(local)
-	if shared, isKept := Shared(data); isKept {
-		out[Path] = shared
-	} else {
-		delete(out, Path)
-	}
-	return out
-}
-
-// Remote returns a copy of the Pen's files with the config file reduced to its
-// shared part.
-func Remote(files []codepen.File) []codepen.File {
-	out := make([]codepen.File, 0, len(files))
-	for _, f := range files {
-		if f.Path != Path || f.Content == nil {
-			out = append(out, f)
-			continue
-		}
-		shared, isKept := Shared([]byte(*f.Content))
-		if !isKept {
-			continue
-		}
-		content := string(shared)
-		f.Content = &content
-		out = append(out, f)
-	}
-	return out
 }
 
 // decode reads a JSON object, keeping every value as raw JSON so numbers and

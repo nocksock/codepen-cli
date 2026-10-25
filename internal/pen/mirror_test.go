@@ -33,14 +33,14 @@ func open(t *testing.T, api *codepentest.Server, root, id string) (*Mirror, *rec
 	return Open(Config{API: client, Root: root, ID: id, Reporter: rec}), rec
 }
 
-// localID is the Pen id stored in root's .codepen/pen.config.json.
+// localID is the Pen id stored in root's .codepen.config.json.
 func localID(t *testing.T, root string) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(root, ".codepen", "pen.config.json"))
+	id, err := penconfig.Read(root)
 	if err != nil {
 		t.Fatalf("reading the local config: %v", err)
 	}
-	return penconfig.ID(data)
+	return id
 }
 
 func writeFile(t *testing.T, root, path, content string) {
@@ -197,7 +197,7 @@ func TestMirror_Pull_RestoresStateWhenSaveFails(t *testing.T) {
 	first := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	second := api.Seed(codepentest.Seed{Files: map[string]string{"b.js": "2"}})
 	root := t.TempDir()
-	writeFile(t, root, ".codepen/pen.config.json", "not json") // the id can't be stored
+	writeFile(t, root, ".codepen.config.json", "not json") // the id can't be stored
 	m, _ := open(t, api, root, first)
 
 	err := m.Pull(t.Context(), PullOptions{Ref: second, Force: true})
@@ -274,20 +274,20 @@ func TestMirror_IDStaysLocal(t *testing.T) {
 	if err := m.Push(t.Context(), PushOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if remote := api.Files(id)["/.codepen/pen.config.json"]; penconfig.ID([]byte(remote)) != "" {
-		t.Errorf("remote config = %q, the id was pushed", remote)
+	if _, ok := api.Files(id)["/"+penconfig.Name]; ok {
+		t.Errorf("%s was pushed", penconfig.Name)
 	}
 	if got := localID(t, root); got != id {
 		t.Errorf("local config id after push = %q, want %q", got, id)
 	}
 }
 
-func TestMirror_Pull_IgnoresForeignIDInRemoteConfig(t *testing.T) {
+func TestMirror_Pull_IgnoresRemoteIDFile(t *testing.T) {
 	t.Parallel()
 	api := codepentest.Start(t)
 	id := api.Seed(codepentest.Seed{Files: map[string]string{
-		"a.js":                     "1",
-		".codepen/pen.config.json": `{"blocks":[],"id":"someone-elses-pen"}`,
+		"a.js":         "1",
+		penconfig.Name: `{"id":"someone-elses-pen"}`,
 	}})
 	root := t.TempDir()
 	m, _ := open(t, api, root, "")

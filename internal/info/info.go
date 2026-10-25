@@ -14,7 +14,6 @@ import (
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/diff"
 	"github.com/nocksock/codepen-cli/internal/human"
-	"github.com/nocksock/codepen-cli/internal/penconfig"
 	"github.com/nocksock/codepen-cli/internal/tree"
 )
 
@@ -46,7 +45,7 @@ func Gather(ctx context.Context, api *codepen.Client, id, root string) (Status, 
 	if err := g.Wait(); err != nil {
 		return Status{}, err
 	}
-	s.Changes = diff.Between(penconfig.Local(localFiles(root)), diff.ByPath(penconfig.Remote(s.Files)))
+	s.Changes = diff.Between(localFiles(root), diff.ByPath(s.Files))
 	return s, nil
 }
 

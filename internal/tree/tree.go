@@ -24,10 +24,12 @@ const tmpSuffix = ".pen-tmp"
 // ignoredNames are compared after foldName.
 var ignoredNames = map[string]bool{
 	".git": true, "node_modules": true, ".env": true, ".envrc": true, ".ds_store": true,
+	".codepen.config.json": true,
 }
 
 // IsIgnored reports whether path ("/a/b") is never mirrored: VCS and
-// dependency folders, env files (secrets and local state) and unfinished writes.
+// dependency folders, env files (secrets and local state), the local
+// .codepen.config.json and unfinished writes.
 // Names match the way case-insensitive filesystems (macOS, Windows) resolve
 // them, so "/.GIT/config" is ignored as much as "/.git/config".
 func IsIgnored(path string) bool {
@@ -104,7 +106,17 @@ func skip(entry fs.DirEntry) error {
 // Write is not safe for concurrent writes to the same path. Names within 9
 // bytes of NAME_MAX fail, because the temporary file adds a suffix.
 func Write(root, path string, r io.Reader) error {
-	name, err := cleanName(path)
+	return writeFile(root, path, r, true)
+}
+
+// WriteLocal is Write for a file that never leaves this machine, such as the
+// Pen id: it allows ignored paths.
+func WriteLocal(root, path string, r io.Reader) error {
+	return writeFile(root, path, r, false)
+}
+
+func writeFile(root, path string, r io.Reader, isIgnoredRefused bool) error {
+	name, err := cleanName(path, isIgnoredRefused)
 	if err != nil {
 		return fmt.Errorf("refusing to write %q: not a file path inside %q", path, root)
 	}
@@ -125,15 +137,16 @@ func Write(root, path string, r io.Reader) error {
 var errBadPath = errors.New("bad path")
 
 // cleanName turns a remote path into a local file name below the root, or
-// errBadPath if the path is not a plain, non-ignored file path.
-func cleanName(p string) (string, error) {
+// errBadPath if the path is not a plain file path, or is ignored while
+// isIgnoredRefused.
+func cleanName(p string, isIgnoredRefused bool) (string, error) {
 	if !strings.HasPrefix(p, "/") || strings.HasSuffix(p, "/") ||
 		strings.Contains(p, "//") || strings.ContainsAny(p, "\\\x00") {
 		return "", errBadPath
 	}
 	clean := path.Clean(strings.TrimPrefix(p, "/")) // not rooted, so ".." stays visible
 	name := filepath.FromSlash(clean)
-	if !filepath.IsLocal(name) || clean == "." || IsIgnored("/"+clean) {
+	if !filepath.IsLocal(name) || clean == "." || (isIgnoredRefused && IsIgnored("/"+clean)) {
 		return "", errBadPath
 	}
 	return name, nil
