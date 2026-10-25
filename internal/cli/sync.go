@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/nocksock/codepen-cli/internal/human"
 	"github.com/nocksock/codepen-cli/internal/pen"
 	"github.com/nocksock/codepen-cli/internal/tree"
 	"github.com/nocksock/codepen-cli/internal/watch"
@@ -47,7 +48,7 @@ func (a *app) syncPen(ctx context.Context, force bool) error {
 	push()
 	isRunning := ctx.Err() == nil // false when interrupted during the first push
 	if urls := m.URLs(); isRunning && urls.Editor != "" {
-		a.printf("editor  %s\npreview %s\n", urls.Editor, urls.Preview)
+		a.printf("editor  %s\npreview %s\n", human.Clean(urls.Editor), human.Clean(urls.Preview))
 	}
 	if isRunning {
 		a.printf("watching %s\n", cfg.Dir)

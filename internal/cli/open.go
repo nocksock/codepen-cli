@@ -9,6 +9,7 @@ import (
 
 	"github.com/nocksock/codepen-cli/internal/browser"
 	"github.com/nocksock/codepen-cli/internal/codepen"
+	"github.com/nocksock/codepen-cli/internal/human"
 )
 
 // targetNames lists the targets in the order they are offered.
@@ -67,9 +68,9 @@ func (a *app) openPen(ctx context.Context, target string) error {
 	if err != nil {
 		return err
 	}
-	a.printf("%s\n", href)
+	a.printf("%s\n", human.Clean(href))
 	if err := a.env.Runner.Start(name, args...); err != nil {
-		a.printf("could not launch a browser; open %s\n", href)
+		a.printf("could not launch a browser; open %s\n", human.Clean(href))
 	}
 	return nil
 }

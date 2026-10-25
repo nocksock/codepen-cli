@@ -3,10 +3,12 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
+	"github.com/nocksock/codepen-cli/internal/human"
 )
 
 // usageError is a mistake in how the pen CLI was called: exit 2 with the usage text.
@@ -59,6 +61,10 @@ func explain(err error) string {
 	case errors.Is(err, codepen.ErrNotFound):
 		return "Pen not found. The API only reaches your own Pens (fork someone else's on codepen.io first)"
 	default:
-		return err.Error()
+		lines := strings.Split(err.Error(), "\n")
+		for i, line := range lines {
+			lines[i] = human.Clean(line)
+		}
+		return strings.Join(lines, "\n")
 	}
 }

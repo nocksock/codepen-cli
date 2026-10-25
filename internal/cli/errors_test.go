@@ -21,6 +21,8 @@ func TestExplain(t *testing.T) {
 		{name: "wrapped", err: fmt.Errorf("writing: %w", &codepen.APIError{Status: 409, Code: "CONFLICT"}), want: "the Pen changed remotely (editor?). run `pen pull` first, or push with --force"},
 		{name: "other api error", err: &codepen.APIError{Status: 500, Code: "BOOM", Message: "x"}, want: "500 BOOM: x"},
 		{name: "plain error", err: errors.New("disk full"), want: "disk full"},
+		{name: "control characters", err: &codepen.APIError{Status: 500, Code: "BOOM", Message: "x\x1b[2J"}, want: `500 BOOM: x\x1b[2J`},
+		{name: "lines kept", err: errors.Join(errors.New("a\tb"), errors.New("c")), want: "a\\tb\nc"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

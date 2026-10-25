@@ -88,3 +88,27 @@ func TestTable(t *testing.T) {
 		t.Errorf("Table() =\n%s\nwant\n%s", got, expected)
 	}
 }
+
+func TestClean(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "plain", input: "/src/ä b.js", expected: "/src/ä b.js"},
+		{name: "escape sequence", input: "x\x1b[2Jy", expected: `x\x1b[2Jy`},
+		{name: "newline and tab", input: "a\nb\tc", expected: `a\nb\tc`},
+		{name: "C1 control", input: "a\u009bb", expected: `a\u009bb`},
+		{name: "bidi override", input: "a\u202eb", expected: `a\u202eb`},
+		{name: "invalid utf-8", input: "a\xffb", expected: "a\ufffdb"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := Clean(tt.input); got != tt.expected {
+				t.Errorf("Clean(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}

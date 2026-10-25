@@ -4,8 +4,11 @@ package human
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 var units = []string{"B", "KB", "MB", "GB"}
@@ -93,6 +96,7 @@ type Row struct {
 }
 
 // Table aligns rows into "label  value" lines and drops rows without a value.
+// Values are cleaned (see Clean), since they often come from elsewhere.
 func Table(rows []Row) string {
 	shown := []Row{}
 	width := 0
@@ -105,7 +109,31 @@ func Table(rows []Row) string {
 	}
 	lines := make([]string, 0, len(shown))
 	for _, row := range shown {
-		lines = append(lines, fmt.Sprintf("%-*s  %s", width, row.Label, row.Value))
+		lines = append(lines, fmt.Sprintf("%-*s  %s", width, row.Label, Clean(row.Value)))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// Clean escapes control characters (\x1b, \n, ...) and bidi controls in s, so
+// a string from elsewhere can't move the cursor, recolour the terminal or
+// reorder what is shown around it. Invalid UTF-8 becomes U+FFFD; everything
+// else is kept as is.
+func Clean(s string) string {
+	if utf8.ValidString(s) && strings.IndexFunc(s, isUnsafe) < 0 {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if !isUnsafe(r) {
+			b.WriteRune(r)
+			continue
+		}
+		quoted := strconv.QuoteRune(r)
+		b.WriteString(quoted[1 : len(quoted)-1])
+	}
+	return b.String()
+}
+
+func isUnsafe(r rune) bool {
+	return unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r)
 }
