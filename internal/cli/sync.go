@@ -45,14 +45,15 @@ func (a *app) syncPen(ctx context.Context, force bool) error {
 		}
 	}
 	push()
-	if ctx.Err() != nil {
-		return nil // interrupted during the first push
-	}
-	if urls := m.URLs(); urls.Editor != "" {
+	isRunning := ctx.Err() == nil // false when interrupted during the first push
+	if urls := m.URLs(); isRunning && urls.Editor != "" {
 		a.printf("editor  %s\npreview %s\n", urls.Editor, urls.Preview)
 	}
-	a.printf("watching %s\n", cfg.Dir)
-	for range changes {
+	if isRunning {
+		a.printf("watching %s\n", cfg.Dir)
+	}
+	for range changes { // closed once ctx is done
+
 		push()
 	}
 	return nil
