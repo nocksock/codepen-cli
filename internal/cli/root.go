@@ -79,6 +79,8 @@ func newRoot(a *app) *cobra.Command {
 	return root
 }
 
+const shells = "bash, zsh, fish or powershell"
+
 // strictCompletion makes Cobra's built-in completion command report bad
 // arguments as usage errors (exit 2) like every other command, instead of
 // printing help (exit 0) or a plain error (exit 1).
@@ -88,12 +90,17 @@ func strictCompletion(root *cobra.Command) {
 		if c.Name() != "completion" {
 			continue
 		}
-		c.Args = usageArgs(cobra.NoArgs)
+		c.Args = func(_ *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return usageError{err: fmt.Errorf("unknown shell %q: use %s", args[0], shells)}
+			}
+			return nil
+		}
 		c.RunE = func(*cobra.Command, []string) error {
-			return usageError{err: fmt.Errorf("completion needs a shell: bash, zsh, fish or powershell")}
+			return usageError{err: fmt.Errorf("completion needs a shell: %s", shells)}
 		}
 		for _, shell := range c.Commands() {
-			shell.Args = usageArgs(cobra.NoArgs)
+			shell.Args = noArgs
 		}
 	}
 }
