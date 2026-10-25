@@ -386,3 +386,4 @@ Review findings that changed behaviour or API compared to the sections above:
   - `codepen.WithBackoff` exists, for tests.
   - Root help is the Node-style usage text; subcommands use Cobra's help.
   - Usage errors, including `open <unknown target>`, print the usage text to stderr and exit 2.
+- **Rename:** the command is now `pen` (`cmd/pen`, goreleaser project `pen`, temp suffix `.pen-tmp`). The sections above still say `cdpn`. The module path stays `github.com/nocksock/codepen-cli`.
