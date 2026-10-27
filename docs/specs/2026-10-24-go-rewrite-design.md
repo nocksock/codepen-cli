@@ -1,5 +1,8 @@
 # cdpn: rewrite in Go — design
 
+> Superseded in part by [ADR-0001](../adr/0001-secrets-are-user-managed.md):
+> `pen` no longer resolves `op://` references or scaffolds `.env`/`.envrc`.
+
 Bean: `pen-rj8c`. Branch: `task/pen-rj8c`. Date: 2026-10-24.
 
 ## Goal
