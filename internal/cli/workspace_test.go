@@ -137,15 +137,11 @@ func (w *workspace) exists(p string) bool {
 	return err == nil
 }
 
-// recorder stands in for op, direnv and the browser, recording each call.
+// recorder stands in for the browser, recording each call.
 type recorder struct {
 	mu      sync.Mutex
 	calls   []string
 	missing map[string]bool // programs that are "not installed"
-}
-
-func (r *recorder) Output(_ context.Context, name string, args ...string) ([]byte, error) {
-	return nil, r.record(name, args)
 }
 
 func (r *recorder) Start(name string, args ...string) error { return r.record(name, args) }

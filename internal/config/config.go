@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nocksock/codepen-cli/internal/envfile"
@@ -14,8 +15,8 @@ import (
 )
 
 const (
-	// SecretsFile holds the API key. The CLI only ever reads it: it may be a
-	// 1Password Environments mount.
+	// SecretsFile holds the API key. The CLI only ever reads it, so a user may
+	// manage it however they like, such as with a secret manager.
 	SecretsFile = ".env"
 	// StateFile holds local settings such as CODEPEN_DIR and wins over SecretsFile.
 	StateFile = ".env.local"
@@ -23,7 +24,7 @@ const (
 
 // Config is the CLI's settings for one working directory.
 type Config struct {
-	KeyRef       string        // CODEPEN_API_KEY: a key or an op:// reference
+	APIKey       string        // CODEPEN_API_KEY
 	Dir          string        // CODEPEN_DIR as an absolute path (default: the working directory)
 	PenID        string        // CODEPEN_ID, else the id in Dir/.codepen.config.json; "" when none
 	APIURL       string        // CODEPEN_API_URL; "" for the production API
@@ -38,7 +39,7 @@ func Load(dir string, getenv func(string) (string, bool)) (Config, error) {
 		return Config{}, err
 	}
 	cfg := Config{
-		KeyRef: lookup("CODEPEN_API_KEY"),
+		APIKey: lookup("CODEPEN_API_KEY"),
 		Dir:    resolve(dir, lookup("CODEPEN_DIR")),
 		APIURL: lookup("CODEPEN_API_URL"),
 	}
@@ -56,12 +57,15 @@ func Load(dir string, getenv func(string) (string, bool)) (Config, error) {
 	return cfg, nil
 }
 
-// Key returns the API key reference, or an error saying where to set it.
+// Key returns the API key, or an error saying where to set it.
 func (c Config) Key() (string, error) {
-	if c.KeyRef == "" {
-		return "", fmt.Errorf("CODEPEN_API_KEY is not set (check %s / %s)", StateFile, SecretsFile)
+	if c.APIKey == "" {
+		return "", fmt.Errorf("CODEPEN_API_KEY is not set: set it in the environment or in %s / %s", StateFile, SecretsFile)
 	}
-	return c.KeyRef, nil
+	if strings.HasPrefix(c.APIKey, "op://") {
+		return "", fmt.Errorf("CODEPEN_API_KEY is a 1Password reference, not a key: resolve it yourself, e.g. `op run -- pen push`, or set the key")
+	}
+	return c.APIKey, nil
 }
 
 func sources(dir string, getenv func(string) (string, bool)) (func(string) string, error) {

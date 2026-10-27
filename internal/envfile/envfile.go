@@ -11,7 +11,7 @@ import (
 )
 
 // Read parses the dotenv file at path; a missing file has no values. The file
-// is read exactly once, so it may be a FIFO such as a 1Password Environments mount.
+// is read exactly once, so it may be a FIFO that another tool feeds.
 func Read(path string) (map[string]string, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {

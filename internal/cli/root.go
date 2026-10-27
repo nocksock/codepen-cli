@@ -5,17 +5,15 @@ import (
 	"runtime/debug"
 
 	"github.com/spf13/cobra"
-
-	"github.com/nocksock/codepen-cli/internal/setup"
 )
 
 // version is set when building releases:
 // -ldflags "-X github.com/nocksock/codepen-cli/internal/cli.version=v1.2.3"
 var version string
 
-const usageFormat = `pen — mirror a local directory to a CodePen 2.0 Pen
+const usage = `pen — mirror a local directory to a CodePen 2.0 Pen
 
-  pen init [PEN]         set up .env, .envrc and .gitignore here; PEN pulls it
+  pen init [PEN]         add env files to .gitignore here; PEN pulls it
   pen push [--force]     push local files (creates a Pen if none is connected)
   pen pull [PEN]         download the Pen's files; PEN (id or URL) connects to it
   pen sync [--force]     push, then watch and push on every change
@@ -24,18 +22,15 @@ const usageFormat = `pen — mirror a local directory to a CodePen 2.0 Pen
   pen completion SHELL   print a completion script (bash, zsh, fish, powershell)
 
 env (.env, .env.local):
-  CODEPEN_API_KEY   key or 1Password ref, e.g. "op://Private/CodePen/API Key"
+  CODEPEN_API_KEY   API key
   CODEPEN_ID        Pen id; overrides the one kept in .codepen.config.json
   CODEPEN_DIR       directory to mirror (default: .)
 
---key      init: API key or 1Password ref for a new .env (default: %q)
 --force    init/pull: switch to PEN although another Pen is connected
            push/sync: skip the version check and overwrite remote edits
 --version  print the version`
 
-func usageText() string {
-	return fmt.Sprintf(usageFormat, setup.DefaultKey)
-}
+func usageText() string { return usage }
 
 func buildVersion() string {
 	if version != "" {

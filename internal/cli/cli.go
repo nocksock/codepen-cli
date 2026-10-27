@@ -16,14 +16,12 @@ type Env struct {
 	Getenv func(string) (string, bool) // process environment
 	Stdout io.Writer
 	Stderr io.Writer
-	Runner Runner // runs op, direnv and the browser
+	Runner Runner // runs the browser
 	GOOS   string
 }
 
 // Runner runs external programs in Env.Dir, never through a shell.
 type Runner interface {
-	// Output runs a program to completion and returns its standard output.
-	Output(ctx context.Context, name string, args ...string) ([]byte, error)
 	// Start launches a program without waiting for it.
 	Start(name string, args ...string) error
 }
