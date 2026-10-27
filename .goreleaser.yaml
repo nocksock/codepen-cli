@@ -31,9 +31,13 @@ snapshot:
 # GitHub compare API (so authors link to their account when GitHub knows their
 # email). Grouped by conventional-commit type, which the regexps match at the
 # start of the subject.
+#
+# The format is spelled out because goreleaser's default for `use: github` is
+# "{{ .SHA }}: {{ .Message }} (…)", and dropping the hash with `abbrev: -1`
+# leaves a stray ": " behind.
 changelog:
   use: github
-  abbrev: -1 # the subject matters, not the hash
+  format: '{{ .Message }}{{ with .Logins }} ({{ .Logins | englishJoin }}){{ end }}'
   groups:
     - title: Features
       regexp: '^feat(\([[:word:]]+\))?!?:.+$'
