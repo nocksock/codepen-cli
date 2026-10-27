@@ -1,6 +1,10 @@
 module github.com/nocksock/codepen-cli
 
-go 1.25.0
+go 1.26.0
+
+// Pinned so CI, releases and govulncheck all run the same toolchain. 1.25 no
+// longer receives standard-library fixes, and govulncheck fails on it.
+toolchain go1.26.10
 
 require (
 	github.com/fsnotify/fsnotify v1.10.1

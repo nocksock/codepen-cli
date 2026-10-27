@@ -19,10 +19,10 @@ pen --version
 ## Install
 
 ```sh
-just install   # go install into $GOBIN (needs Go ≥ 1.25)
+just install   # go install into $GOBIN (needs Go ≥ 1.26)
 ```
 
-Inside this repo, `just build` puts `pen` in `bin/`, which `.envrc` adds to `PATH`.
+Every tagged release carries archives for linux, macOS and Windows, amd64 and arm64. Inside this repo, `just build` puts `pen` in `bin/`, which `.envrc` adds to `PATH`.
 
 ## Setup
 
@@ -64,7 +64,10 @@ See [API_OVERVIEW.md](API_OVERVIEW.md) for what else the API can do.
 ```sh
 just test       # go test -race -shuffle=on ./...
 just lint       # golangci-lint
-just snapshot   # cross-compile release archives into dist/ (publishing is disabled)
+just vuln       # govulncheck
+just snapshot   # cross-compile release archives into dist/ without publishing
 ```
 
-The CLI tests in `internal/cli` run `cli.Run` in-process against an in-memory fake CodePen API (`internal/codepen/codepentest`), in temp directories, with a recording stand-in for `op`, `direnv` and the browser. They need no network or API key. `CODEPEN_API_URL` and `CODEPEN_POLL_MS` point `pen` at another API and speed up build polling.
+CI runs the same three checks on every push to `main` and every pull request; pushing a `v*` tag publishes a release.
+
+The CLI tests in `internal/cli` run `cli.Run` in-process against an in-memory fake CodePen API (`internal/codepen/codepentest`), in temp directories, with a recording stand-in for the browser. They need no network or API key. `CODEPEN_API_URL` and `CODEPEN_POLL_MS` point `pen` at another API and speed up build polling.
