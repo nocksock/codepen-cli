@@ -21,7 +21,11 @@ func newPullCmd(a *app) *cobra.Command {
 			if len(args) == 1 {
 				opts.Ref = args[0]
 			}
-			return m.Pull(cmd.Context(), opts)
+			if err := m.Pull(cmd.Context(), opts); err != nil {
+				return err
+			}
+			a.showURLs(m.URLs())
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "switch to PEN although another Pen is connected")

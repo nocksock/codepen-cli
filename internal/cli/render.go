@@ -36,9 +36,9 @@ func render(e pen.Event) string {
 	case pen.Downloaded:
 		fmt.Fprintf(&b, "  ↓ %s\n", human.Clean(e.Path))
 	case pen.Created:
-		fmt.Fprintf(&b, "created %s\n", human.Clean(e.URLs.Editor))
+		b.WriteString("created\n")
 	case pen.Connected:
-		fmt.Fprintf(&b, "connected %s\n", human.Clean(e.URLs.Editor))
+		b.WriteString("connected\n")
 	}
 	return b.String()
 }

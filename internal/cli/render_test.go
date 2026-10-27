@@ -50,8 +50,8 @@ func TestRender(t *testing.T) {
 			}},
 			want: "  ✗ /a\\x1b[2J.js line\\nfake\n  build Failed\\x1b[0m\n",
 		},
-		{name: "created", event: pen.Created{URLs: urls}, want: "created https://codepen.io/editor/x\n"},
-		{name: "connected", event: pen.Connected{URLs: urls}, want: "connected https://codepen.io/editor/x\n"},
+		{name: "created", event: pen.Created{URLs: urls}, want: "created\n"},
+		{name: "connected", event: pen.Connected{URLs: urls}, want: "connected\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
