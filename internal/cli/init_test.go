@@ -100,9 +100,11 @@ func TestInit_PenConnectsAndPulls(t *testing.T) {
 	t.Parallel()
 	w := newWorkspace(t, nil)
 	id := w.api.Seed(codepentest.Seed{Files: map[string]string{"index.html": "<p>hi</p>"}})
-	if r := w.run("init", id); r.code != 0 {
+	r := w.run("init", id)
+	if r.code != 0 {
 		t.Fatalf("code %d: %s", r.code, r.stderr)
 	}
+	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 	if got := w.read("index.html"); got != "<p>hi</p>" {
 		t.Errorf("index.html = %q", got)
 	}

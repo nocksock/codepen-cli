@@ -56,5 +56,9 @@ func (a *app) initDir(ctx context.Context, opts initOptions) error {
 	if err != nil {
 		return err
 	}
-	return m.Pull(ctx, pen.PullOptions{Ref: opts.penRef, Force: opts.force})
+	if err := m.Pull(ctx, pen.PullOptions{Ref: opts.penRef, Force: opts.force}); err != nil {
+		return err
+	}
+	a.showURLs(m.URLs())
+	return nil
 }

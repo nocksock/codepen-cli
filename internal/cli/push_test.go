@@ -22,9 +22,10 @@ func TestPush_CreatesPen(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("code %d: %s", r.code, r.stderr)
 	}
-	if !strings.HasPrefix(r.stdout, "created https://codepen.io/editor/") {
+	if !strings.HasPrefix(r.stdout, "created\n") {
 		t.Errorf("stdout = %q", r.stdout)
 	}
+	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 	id := w.penID()
 	if id == "" {
 		t.Fatalf("no Pen id stored in .codepen.config.json: %q", w.read(".codepen.config.json"))
@@ -56,9 +57,10 @@ func TestPush_NothingChanged(t *testing.T) {
 	t.Parallel()
 	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	r := w.run("push")
-	if r.code != 0 || r.stdout != "" || writes(w, id) != 0 {
+	if r.code != 0 || writes(w, id) != 0 {
 		t.Errorf("code %d, stdout %q, writes %d", r.code, r.stdout, writes(w, id))
 	}
+	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 }
 
 func TestPush_UploadsAndDeletes(t *testing.T) {
@@ -94,9 +96,10 @@ func TestPush_BinaryFiles(t *testing.T) {
 		t.Errorf("remote dot.png = %v, binary %v, found %v", data, isBinary, ok)
 	}
 	second := w.run("push")
-	if second.stdout != "" || writes(w, id) != 1 {
+	if strings.Contains(second.stdout, "~") || writes(w, id) != 1 {
 		t.Errorf("second push stdout %q, writes %d; want no write", second.stdout, writes(w, id))
 	}
+	matches(t, second.stdout, `^editor +https://codepen\.io/editor/`)
 }
 
 func TestPush_SkipsEmptyAndIgnoredFiles(t *testing.T) {
@@ -107,9 +110,10 @@ func TestPush_SkipsEmptyAndIgnoredFiles(t *testing.T) {
 	w.write(".env.production", "SECRET=1")
 	w.write(".envrc", "dotenv")
 	r := w.run("push")
-	if r.code != 0 || r.stdout != "" || writes(w, id) != 0 {
+	if r.code != 0 || writes(w, id) != 0 {
 		t.Errorf("code %d, stdout %q, writes %d", r.code, r.stdout, writes(w, id))
 	}
+	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 }
 
 func TestPush_RefusesToEmptyPen(t *testing.T) {

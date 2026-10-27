@@ -53,6 +53,7 @@ The connected Pen is kept as `"id"` in `.codepen.config.json` at the top of the 
 - **pull `<PEN>`** takes a Pen id (`01a1…-…` or Classic `PwWmgeN`) or any URL that contains one: the editor URL, a public `/pen/`, `/full/`, `/details/` or embed URL, or a `?template=` URL. It stores the id in `.codepen.config.json`, so later commands use it. The API only reaches your own Pens, so fork other people's on codepen.io first. Classic Pens can be pulled but not pushed.
 - **pull** without `<PEN>` and without a connected Pen fails. Files are written atomically, and a remote path that would land outside the directory is refused.
 - **push** mirrors local → remote: changed and new files are uploaded, and remote files missing locally are deleted. It refuses to push an empty directory.
+- After **push**, **pull**, **sync** and **init `<PEN>`**, the Pen's editor and preview URLs are printed, even when nothing changed.
 - After every push, compiler patches (e.g. `.codepen/pen.config.json`, `tsconfig.json`) are written back locally.
 - Empty files are skipped because the API rejects empty content.
 - Ignored, in any letter case: `.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store`, `.codepen.config.json`. Ignored paths are never pushed, never written by pull (so a Pen can't plant `.git/hooks` or replace `.env`), and never deleted remotely.

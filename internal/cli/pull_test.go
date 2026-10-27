@@ -18,6 +18,7 @@ func TestPull_EditorURLDownloadsTextAndBinary(t *testing.T) {
 		t.Fatalf("code %d: %s", r.code, r.stderr)
 	}
 	matches(t, r.stdout, `connected`)
+	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 	if got := w.read("index.html"); got != "<p>hi</p>" {
 		t.Errorf("index.html = %q", got)
 	}
@@ -37,6 +38,7 @@ func TestPull_OverwritesLocalEdits(t *testing.T) {
 	w.write("a.js", "local")
 	r := w.run("pull")
 	matches(t, r.stdout, `↓ /a\.js`)
+	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 	if got := w.read("a.js"); got != "remote" {
 		t.Errorf("a.js = %q", got)
 	}

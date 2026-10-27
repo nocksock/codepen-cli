@@ -17,7 +17,11 @@ func newPushCmd(a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return m.Push(cmd.Context(), pen.PushOptions{Force: force})
+			if err := m.Push(cmd.Context(), pen.PushOptions{Force: force}); err != nil {
+				return err
+			}
+			a.showURLs(m.URLs())
+			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "skip the version check and overwrite remote edits")
