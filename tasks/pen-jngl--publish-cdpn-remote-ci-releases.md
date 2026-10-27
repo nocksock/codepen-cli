@@ -1,11 +1,11 @@
 ---
 # pen-jngl
 title: 'Publish pen: remote, CI, releases'
-status: todo
+status: in-progress
 type: task
 priority: normal
 created_at: 2026-10-25T14:10:41Z
-updated_at: 2026-10-25T14:38:36Z
+updated_at: 2026-10-27T21:46:55Z
 ---
 
 Once the repo has a (private) GitHub remote:
