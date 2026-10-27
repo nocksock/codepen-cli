@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes the previous run on the same branch or pull request.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          # Reads the go and toolchain directives, so CI builds with the same
+          # toolchain as local builds and releases.
+          go-version-file: go.mod
+      - run: go build ./...
+      - run: go test -race -shuffle=on ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+      # The action leaves golangci-lint on PATH, so the formatters configured in
+      # .golangci.yml (gofumpt, goimports) are checked too.
+      - name: Check formatting
+        run: golangci-lint fmt --diff
+      - name: Validate release config
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: v2.19.0
+          args: check
+
+  vuln:
+    name: Vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      # Same command as `just vuln`, so a local run reproduces this job.
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

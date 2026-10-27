@@ -27,9 +27,7 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
+# Release notes come from GitHub, so they follow pull request titles and
+# .github/release.yml rather than goreleaser's commit-message grouping.
 changelog:
-  disable: true
-
-release:
-  # The repository is private and has no remote yet. Publishing is a follow-up bean.
-  disable: true
+  use: github

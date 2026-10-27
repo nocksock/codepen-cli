@@ -20,6 +20,10 @@ test:
 lint:
     if command -v golangci-lint >/dev/null; then golangci-lint run ./...; else nix run nixpkgs#golangci-lint -- run ./...; fi
 
+# Scan for known vulnerabilities (same command as CI)
+vuln:
+    go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
 # Cross-compile all release archives into dist/ without publishing
 snapshot:
     if command -v goreleaser >/dev/null; then goreleaser release --snapshot --clean; else nix run nixpkgs#goreleaser -- release --snapshot --clean; fi
