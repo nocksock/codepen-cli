@@ -1,6 +1,6 @@
 beans:
-    path: .beans
-    prefix: codepen-api-prototyping-
+    path: tasks
+    prefix: pen-
     id_length: 4
     default_status: todo
     default_type: task
@@ -42,7 +42,7 @@ launchers:
 
       1. Confirm the merge: \`git -C "$HUB" merge-base --is-ancestor task/$BEANS_ID main\` must succeed. If it fails, stop and tell the user.
       2. Check the related beans (parent, children, blocking and blocked-by; see \`beans show $BEANS_ID\`). If decisions or outcomes of this work affect any of them, update them with \`beans update\`, e.g. their body, status or blocking links, and tell the user what you changed.
-      3. Mark the bean completed and commit it in the hub together with any related bean updates: \`beans update $BEANS_ID --status completed && git -C "$HUB" add .beans && git -C "$HUB" commit -m "chore: complete $BEANS_ID"\`
+      3. Mark the bean completed and commit it in the hub together with any related bean updates: \`beans update $BEANS_ID --status completed && git -C "$HUB" add tasks && git -C "$HUB" commit -m "chore: complete $BEANS_ID"\`
       4. Remove the worktree: \`git -C "$HUB" worktree remove "$WORKTREE_DIR"\`. Do not pass --force; if it refuses because of uncommitted changes, stop and tell the user.
       5. Delete the branch from the main worktree (branch main), so -d checks it against main: \`git -C "$HUB/main" branch -d task/$BEANS_ID\`
       6. Close this tmux window as the very last step, since it ends this session: \`tmux kill-window -t "\$TMUX_PANE"\`

@@ -8,7 +8,7 @@ the paths they need. All subfolders are ignored by the hub.
 
 ## Tasks
 
-Tasks are tracked with beans in `./.beans` on the hub branch. The beans CLI
+Tasks are tracked with beans in `./tasks` on the hub branch. The beans CLI
 searches upward for `.beans.yml`, so every worktree shares the same tasks. Commit
 bean changes here in the hub, not in the worktrees.
 
