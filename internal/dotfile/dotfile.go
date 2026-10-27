@@ -36,8 +36,9 @@ func (s Status) String() string {
 }
 
 // Ensure creates path with content unless something already exists there. An
-// existing file is never touched: .env may be a 1Password mount. Creation is
-// exclusive, so concurrent callers cannot race and a dangling symlink is kept.
+// existing file is never touched, since it may be managed by another tool.
+// Creation is exclusive, so concurrent callers cannot race and a dangling
+// symlink is kept.
 func Ensure(path, content string, perm fs.FileMode) (Status, error) {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
 	if errors.Is(err, fs.ErrExist) {

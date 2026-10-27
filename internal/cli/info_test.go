@@ -51,14 +51,13 @@ func TestInfo_DeploymentURL(t *testing.T) {
 func TestInfo_NeedsConnectedPen(t *testing.T) {
 	t.Parallel()
 	w := newWorkspace(t, nil)
-	w.vars["CODEPEN_API_KEY"] = "op://Private/CodePen/API Key"
 	r := w.run("info")
 	if r.code != 1 {
 		t.Errorf("code = %d, want 1", r.code)
 	}
 	matches(t, r.stderr, `no Pen connected`)
 	if calls := w.runner.Calls(); len(calls) != 0 {
-		t.Errorf("calls = %q, want none (no key lookup without a Pen)", calls)
+		t.Errorf("calls = %q, want none", calls)
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/nocksock/codepen-cli/internal/config"
 	"github.com/nocksock/codepen-cli/internal/human"
 	"github.com/nocksock/codepen-cli/internal/pen"
-	"github.com/nocksock/codepen-cli/internal/secret"
 )
 
 // app builds what the commands need from Env.
@@ -18,13 +17,9 @@ func (a *app) config() (config.Config, error) {
 	return config.Load(a.env.Dir, a.env.Getenv)
 }
 
-// client returns an API client for cfg, resolving an op:// key first.
-func (a *app) client(ctx context.Context, cfg config.Config) (*codepen.Client, error) {
-	keyRef, err := cfg.Key()
-	if err != nil {
-		return nil, err
-	}
-	key, err := secret.Resolve(ctx, keyRef, a.env.Runner)
+// client returns an API client for cfg.
+func (a *app) client(_ context.Context, cfg config.Config) (*codepen.Client, error) {
+	key, err := cfg.Key()
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +62,7 @@ func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
 }
 
 // connected returns a client and config for commands that need a connected Pen.
-// It checks for one before resolving the key, which may prompt (1Password).
+// It checks for one before requiring the key, so the missing Pen is reported first.
 func (a *app) connected(ctx context.Context) (*codepen.Client, config.Config, error) {
 	cfg, err := a.config()
 	if err != nil {

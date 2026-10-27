@@ -31,8 +31,8 @@ func TestLoad_Precedence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.KeyRef != "from-env-file" {
-		t.Errorf("KeyRef = %q (an empty process value must not win)", cfg.KeyRef)
+	if cfg.APIKey != "from-env-file" {
+		t.Errorf("APIKey = %q (an empty process value must not win)", cfg.APIKey)
 	}
 	if cfg.Dir != filepath.Join(dir, "pen") {
 		t.Errorf("Dir = %q, want state file's pen", cfg.Dir)
@@ -102,8 +102,8 @@ func TestLoad_EmptyFileValueFallsThrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.KeyRef != "real" {
-		t.Errorf("KeyRef = %q, want the .env value", cfg.KeyRef)
+	if cfg.APIKey != "real" {
+		t.Errorf("APIKey = %q, want the .env value", cfg.APIKey)
 	}
 }
 
@@ -119,14 +119,25 @@ func TestLoad_RelativeDir(t *testing.T) {
 	}
 }
 
-func TestKey_ReturnsReference(t *testing.T) {
+func TestKey_ReturnsKey(t *testing.T) {
 	t.Parallel()
-	cfg, err := Load(t.TempDir(), env(map[string]string{"CODEPEN_API_KEY": "op://v/i/f"}))
+	cfg, err := Load(t.TempDir(), env(map[string]string{"CODEPEN_API_KEY": "cp_user_abc"}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := cfg.Key(); err != nil || got != "op://v/i/f" {
+	if got, err := cfg.Key(); err != nil || got != "cp_user_abc" {
 		t.Errorf("Key() = %q, %v", got, err)
+	}
+}
+
+func TestKey_RejectsOnePasswordReference(t *testing.T) {
+	t.Parallel()
+	cfg, err := Load(t.TempDir(), env(map[string]string{"CODEPEN_API_KEY": "op://Private/CodePen/API Key"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cfg.Key(); err == nil || !strings.Contains(err.Error(), "op run") {
+		t.Errorf("Key() error = %v, want guidance to resolve it", err)
 	}
 }
 

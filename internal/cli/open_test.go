@@ -52,13 +52,12 @@ func TestOpen_Failures(t *testing.T) {
 func TestOpen_NeedsConnectedPen(t *testing.T) {
 	t.Parallel()
 	w := newWorkspace(t, nil)
-	w.vars["CODEPEN_API_KEY"] = "op://Private/CodePen/API Key"
 	r := w.run("open")
 	if r.code != 1 || !strings.Contains(r.stderr, "no Pen connected") {
 		t.Errorf("code %d, stderr %q", r.code, r.stderr)
 	}
 	if calls := w.runner.Calls(); len(calls) != 0 {
-		t.Errorf("calls = %q, want none (no key lookup without a Pen)", calls)
+		t.Errorf("calls = %q, want none", calls)
 	}
 }
 

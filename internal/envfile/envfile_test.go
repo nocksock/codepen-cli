@@ -17,7 +17,7 @@ func TestParse(t *testing.T) {
 		{name: "plain", input: "A=1\nB=two\n", expected: map[string]string{"A": "1", "B": "two"}},
 		{name: "double quotes with newline escape", input: `A="x y\nz"`, expected: map[string]string{"A": "x y\nz"}},
 		{name: "single quotes stay literal", input: `A='x\ny'`, expected: map[string]string{"A": `x\ny`}},
-		{name: "op ref with spaces", input: `CODEPEN_API_KEY="op://Private/CodePen/API Key"`, expected: map[string]string{"CODEPEN_API_KEY": "op://Private/CodePen/API Key"}},
+		{name: "quoted value with spaces", input: `CODEPEN_API_KEY="two words"`, expected: map[string]string{"CODEPEN_API_KEY": "two words"}},
 		{name: "export prefix", input: "export A=1", expected: map[string]string{"A": "1"}},
 		{name: "comments and blanks", input: "# note\n\nA=1 # trailing\n", expected: map[string]string{"A": "1"}},
 		{name: "crlf", input: "A=1\r\nB=2\r\n", expected: map[string]string{"A": "1", "B": "2"}},

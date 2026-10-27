@@ -3,7 +3,7 @@
 Mirror a local directory to a CodePen 2.0 Pen. A single Go binary.
 
 ```sh
-pen init [PEN]  # set up .env, .envrc and .gitignore here; with PEN, pull it too
+pen init [PEN]  # add env files to .gitignore here; with PEN, pull it too
 pen push        # push local files (creates a Pen if none is connected yet)
 pen pull        # download the Pen's files (never deletes local files)
 pen pull <PEN>  # connect this directory to PEN, then pull it
@@ -26,19 +26,15 @@ Inside this repo, `just build` puts `pen` in `bin/`, which `.envrc` adds to `PAT
 
 ## Setup
 
-In any folder, run `pen init`. It never overwrites anything:
+In any folder, run `pen init`. It never overwrites anything: **`.gitignore`** gains `.env` and `.env.local` if they're missing. **`.env` and `.envrc`** are yours to create and manage; `pen` never writes them.
 
-- **`.env`** is created with `CODEPEN_API_KEY="op://Private/CodePen/API Key"` (or the value from `--key`). An existing `.env`, such as a 1Password mount, is left alone.
-- **`.envrc`** and **`.gitignore`** only gain the lines they're missing.
-- **`direnv allow`** runs if direnv is installed.
-
-Both files are loaded by direnv via `.envrc`, and by `pen` itself as a fallback. The shell environment wins, then `.env.local`, then `.env`.
-
-`.env` holds secrets, and `pen` only ever reads it, so it can be a 1Password Environments mount:
+`pen` reads `CODEPEN_API_KEY` from the shell environment, then `.env.local`, then `.env`. Use whichever fits: export it, let direnv or a secret manager inject it, or put it in `.env`.
 
 ```sh
-CODEPEN_API_KEY=cp_user_…   # or a ref like "op://Private/CodePen/API Key", resolved with `op read`
+CODEPEN_API_KEY=cp_user_…
 ```
+
+`pen` does not resolve secret-manager references. If yours holds `op://…`, run the command through your tool, e.g. `op run -- pen push`.
 
 `.env.local` holds local settings:
 
