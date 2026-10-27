@@ -10,6 +10,7 @@ default:
 # Build bin/pen (on PATH via .envrc)
 build:
     go build -trimpath -ldflags '{{ldflags}}' -o bin/pen ./cmd/pen
+    ./bin/pen --version
 
 # Run all tests with the race detector, in random order
 test:
