@@ -43,17 +43,23 @@ func usageArgs(check cobra.PositionalArgs) cobra.PositionalArgs {
 	}
 }
 
-// report prints err the way the CLI always has and returns the exit code.
-func report(env Env, err error) int {
+// report prints err and returns the exit code. A usage error points at the
+// help of cmd, the command that was run; nil for pen itself.
+func report(env Env, cmd *cobra.Command, err error) int {
 	var usage usageError
 	switch {
 	case err == nil:
 		return 0
-	case errors.As(err, &usage):
-		if usage.err != nil {
-			fmt.Fprintf(env.Stderr, "✗ %v\n\n", usage.err)
-		}
+	case errors.As(err, &usage) && usage.err == nil:
 		fmt.Fprintln(env.Stderr, usageText())
+		return 2
+	case errors.As(err, &usage):
+		fmt.Fprintf(env.Stderr, "✗ %v\n", usage.err)
+		if cmd == nil {
+			fmt.Fprintln(env.Stderr, "run `pen --help` to see the commands")
+		} else {
+			fmt.Fprintf(env.Stderr, "usage: %s\nrun `%s --help` for more\n", cmd.UseLine(), cmd.CommandPath())
+		}
 		return 2
 	default:
 		fmt.Fprintf(env.Stderr, "✗ %s\n", explain(err))

@@ -12,23 +12,26 @@ import (
 // -ldflags "-X github.com/nocksock/codepen-cli/internal/cli.version=v1.2.3"
 var version string
 
-const usage = `pen — mirror a local directory to a CodePen 2.0 Pen
+const usage = `pen — edit a CodePen in your own editor, by mirroring a folder to a Pen
 
-  pen push [--force]     push local files (creates a Pen if none is connected)
-  pen pull [PEN]         download the Pen's files; PEN (id or URL) connects to it
-  pen sync [--force]     push, then watch and push on every change
-  pen info               show the Pen's details and local sync status
-  pen open [TARGET]      open editor (default), preview or live in the browser
-  pen completion SHELL   print a completion script (bash, zsh, fish, powershell)
+usage: pen <command> [flags]
 
-env (.env, .env.local):
-  CODEPEN_API_KEY   API key
-  CODEPEN_ID        Pen id; overrides the one kept in .codepen.config.json
-  CODEPEN_DIR       directory to mirror (default: .)
+  pen push              upload local changes; creates a Pen if the folder has none
+  pen pull [PEN]        download changes from CodePen; PEN connects the folder to that Pen
+  pen sync              push, then push again on every change
+  pen info              show the Pen's details, build status and changes waiting to push
+  pen open [TARGET]     open the editor (default), preview or live site in the browser
+  pen completion SHELL  print a completion script for bash, zsh, fish or powershell
 
---force    pull: switch to PEN although another Pen is connected, and replace differing local files
-           push/sync: skip the version check and overwrite remote edits
---version  print the version`
+flags:
+  -q, --quiet           print errors only
+  -h, --help            show help; pen help <command> shows a command's options and examples
+  -v, --version         print the version
+
+settings, from the shell, .env.local or .env:
+  CODEPEN_API_KEY   your API key (required)
+  CODEPEN_DIR       the folder to mirror, if not the current one
+  CODEPEN_ID        the Pen to use, as an id or URL; overrides the connected one`
 
 func usageText() string { return usage }
 
@@ -84,6 +87,7 @@ func strictHelp(root *cobra.Command) {
 		if c.Name() != "help" {
 			continue
 		}
+		c.Short = "show a command's options and examples"
 		c.RunE = func(_ *cobra.Command, args []string) error {
 			topic, _, err := root.Find(args)
 			if err != nil || (topic == root && len(args) > 0) {
@@ -105,6 +109,7 @@ func strictCompletion(root *cobra.Command) {
 		if c.Name() != "completion" {
 			continue
 		}
+		c.Short = "print a completion script for " + shells
 		c.Args = func(_ *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return usageError{err: fmt.Errorf("unknown shell %q: use %s", args[0], shells)}

@@ -20,13 +20,20 @@ func newSyncCmd(a *app) *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "sync",
-		Short: "push, then watch and push on every change",
-		Args:  noArgs,
+		Short: "push, then push again on every change",
+		Long: `Push, then watch the folder and push again whenever something changes, until
+you stop it with Ctrl-C. Once watching, each line starts with the time.
+
+If the Pen changes on CodePen meanwhile, sync stops pushing: stop it, run
+pen pull, and start it again.`,
+		Example: `  pen sync
+  pen sync -q          # print errors only`,
+		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return a.syncPen(cmd.Context(), force)
 		},
 	}
-	cmd.Flags().BoolVar(&force, "force", false, "skip the version check and overwrite remote edits")
+	cmd.Flags().BoolVar(&force, "force", false, "overwrite the Pen even if it changed on CodePen")
 	return cmd
 }
 

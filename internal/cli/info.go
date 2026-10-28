@@ -13,9 +13,13 @@ func newInfoCmd(a *app) *cobra.Command {
 	var isJSON bool
 	cmd := &cobra.Command{
 		Use:   "info",
-		Short: "show the Pen's details and local sync status",
-		Args:  noArgs,
-		RunE:  func(cmd *cobra.Command, _ []string) error { return a.showInfo(cmd.Context(), isJSON) },
+		Short: "show the Pen's details, build status and changes waiting to push",
+		Long: `Show the connected Pen's title, id, versions, latest build, files and
+deployment, and how many local changes are waiting to push.`,
+		Example: `  pen info
+  pen info --json | jq .local`,
+		Args: noArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error { return a.showInfo(cmd.Context(), isJSON) },
 	}
 	cmd.Flags().BoolVar(&isJSON, "json", false, "print the details as JSON")
 	return cmd

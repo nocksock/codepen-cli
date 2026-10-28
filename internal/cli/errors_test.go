@@ -46,7 +46,7 @@ func TestReport(t *testing.T) {
 	}{
 		{name: "success", err: nil, code: 0, stderr: ""},
 		{name: "usage without message", err: usageError{}, code: 2, stderr: usageText() + "\n"},
-		{name: "usage with message", err: usageError{err: errors.New("unknown flag")}, code: 2, stderr: "✗ unknown flag\n\n" + usageText() + "\n"},
+		{name: "usage with message", err: usageError{err: errors.New("unknown flag")}, code: 2, stderr: "✗ unknown flag\nrun `pen --help` to see the commands\n"},
 		{name: "wrapped usage", err: fmt.Errorf("x: %w", usageError{}), code: 2, stderr: usageText() + "\n"},
 		{name: "runtime error", err: errors.New("boom"), code: 1, stderr: "✗ boom\n"},
 	}
@@ -54,7 +54,7 @@ func TestReport(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var stderr bytes.Buffer
-			code := report(Env{Stderr: &stderr}, tt.err)
+			code := report(Env{Stderr: &stderr}, nil, tt.err)
 			if code != tt.code || stderr.String() != tt.stderr {
 				t.Errorf("code %d, stderr %q; want %d, %q", code, stderr.String(), tt.code, tt.stderr)
 			}

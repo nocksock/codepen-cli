@@ -54,9 +54,12 @@ func Run(ctx context.Context, args []string, env Env) int {
 	}
 	root := newRoot(&app{env: env})
 	root.SetArgs(args)
-	err := root.ExecuteContext(ctx)
+	cmd, err := root.ExecuteContextC(ctx)
 	if ctx.Err() != nil {
 		return exitInterrupted
 	}
-	return report(env, err)
+	if cmd == root {
+		cmd = nil
+	}
+	return report(env, cmd, err)
 }

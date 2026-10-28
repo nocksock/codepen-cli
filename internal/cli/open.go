@@ -29,8 +29,12 @@ var targets = map[string]func(codepen.Pen) string{
 
 func newOpenCmd(a *app) *cobra.Command {
 	return &cobra.Command{
-		Use:       "open [" + strings.Join(targetNames, "|") + "]",
-		Short:     "open editor (default), preview or live in the browser",
+		Use:   "open [" + strings.Join(targetNames, "|") + "]",
+		Short: "open the editor (default), preview or live site in the browser",
+		Long: `Open the connected Pen in your browser, and print the URL. TARGET is editor
+(the default), preview, or live: the deployed site.`,
+		Example: `  pen open
+  pen open preview`,
 		ValidArgs: targetNames,
 		Args:      usageArgs(cobra.MatchAll(cobra.MaximumNArgs(1), knownTarget)),
 		RunE: func(cmd *cobra.Command, args []string) error {
