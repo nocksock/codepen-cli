@@ -7,7 +7,7 @@ import (
 )
 
 func newPushCmd(a *app) *cobra.Command {
-	var force bool
+	var force, isDryRun bool
 	cmd := &cobra.Command{
 		Use:   "push",
 		Short: "push local files (creates a Pen if none is connected)",
@@ -17,9 +17,10 @@ func newPushCmd(a *app) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return m.Push(cmd.Context(), pen.PushOptions{Force: force})
+			return m.Push(cmd.Context(), pen.PushOptions{Force: force, DryRun: isDryRun})
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "skip the version check and overwrite remote edits")
+	cmd.Flags().BoolVar(&isDryRun, "dry-run", false, "list what would change, change nothing")
 	return cmd
 }

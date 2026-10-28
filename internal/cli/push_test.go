@@ -178,3 +178,32 @@ func TestPush_Quiet(t *testing.T) {
 	}
 	matches(t, r.stderr, `✗ /a\.js bad`)
 }
+
+func TestPush_DryRun(t *testing.T) {
+	t.Parallel()
+	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1", "b.js": "2"}})
+	w.write("a.js", "changed")
+	w.write("c.js", "new")
+	w.remove("b.js")
+	r := w.run("push", "--dry-run")
+	if r.code != 0 || writes(w, id) != 0 {
+		t.Fatalf("code %d, writes %d, stderr %q; want no write", r.code, writes(w, id), r.stderr)
+	}
+	for _, line := range []string{`^  ~ /a\.js$`, `^  \+ /c\.js$`, `^  - /b\.js$`, `^would push 3 files to "`} {
+		matches(t, r.stdout, line)
+	}
+	if files := w.api.Files(id); files["/a.js"] != "1" || files["/b.js"] != "2" {
+		t.Errorf("remote files = %v, want them untouched", files)
+	}
+}
+
+func TestPush_DryRunWithoutPen(t *testing.T) {
+	t.Parallel()
+	w := newWorkspace(t, map[string]string{"a.js": "1", "b.js": "2"})
+	r := w.run("push", "--dry-run")
+	if r.code != 0 || w.api.Calls(`^POST /v2/pens`) != 0 || w.exists(".codepen.config.json") {
+		t.Fatalf("code %d, creates %d, stderr %q; want nothing created", r.code, w.api.Calls(`^POST /v2/pens`), r.stderr)
+	}
+	matches(t, r.stdout, `^  \+ /a\.js$`)
+	matches(t, r.stdout, `^would create a Pen with 2 files$`)
+}

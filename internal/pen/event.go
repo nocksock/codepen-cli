@@ -48,15 +48,27 @@ type Pushed struct {
 // Pulled ends a pull that wrote Files files.
 type Pulled struct{ Files int }
 
+// WouldPush ends a dry run that would send Files changed files.
+type WouldPush struct {
+	Title string
+	Files int
+}
+
+// WouldCreate ends a dry run that would create a Pen with Files files; with
+// none, from CodePen's starter files.
+type WouldCreate struct{ Files int }
+
 // UpToDate ends a push or pull that had nothing to do.
 type UpToDate struct{}
 
-func (Planned) event()    {}
-func (Built) event()      {}
-func (Downloaded) event() {}
-func (Kept) event()       {}
-func (Created) event()    {}
-func (Connected) event()  {}
-func (Pushed) event()     {}
-func (Pulled) event()     {}
-func (UpToDate) event()   {}
+func (Planned) event()     {}
+func (Built) event()       {}
+func (Downloaded) event()  {}
+func (Kept) event()        {}
+func (Created) event()     {}
+func (Connected) event()   {}
+func (Pushed) event()      {}
+func (Pulled) event()      {}
+func (UpToDate) event()    {}
+func (WouldPush) event()   {}
+func (WouldCreate) event() {}

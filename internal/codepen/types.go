@@ -117,7 +117,10 @@ type Upload struct {
 	Data []byte
 }
 
-// IsEmpty reports whether cs changes nothing.
-func (cs ChangeSet) IsEmpty() bool {
-	return len(cs.Writes)+len(cs.Deletes)+len(cs.Uploads) == 0
+// Len is how many files cs changes.
+func (cs ChangeSet) Len() int {
+	return len(cs.Writes) + len(cs.Deletes) + len(cs.Uploads)
 }
+
+// IsEmpty reports whether cs changes nothing.
+func (cs ChangeSet) IsEmpty() bool { return cs.Len() == 0 }
