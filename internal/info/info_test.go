@@ -1,11 +1,14 @@
 package info
 
 import (
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
+	"github.com/nocksock/codepen-cli/internal/codepen/codepentest"
 )
 
 func TestRender(t *testing.T) {
@@ -72,6 +75,7 @@ func TestRender_BuildAndLocalVariants(t *testing.T) {
 		{name: "single error", status: Status{Pen: codepen.Pen{SavedVersion: &codepen.Version{Build: &codepen.Build{Status: "Failure", Errors: []codepen.BuildError{{}}}}}}, want: "build       Failure, 1 error\n"},
 		{name: "uploads only", status: Status{Changes: codepen.ChangeSet{Uploads: []codepen.Upload{{Path: "/a.png"}}}}, want: "local       1 to upload (pen push)"},
 		{name: "deletes only", status: Status{Changes: codepen.ChangeSet{Deletes: []string{"/a"}}}, want: "local       1 to delete (pen push)"},
+		{name: "unreadable directory", status: Status{LocalErr: errors.New("no such directory")}, want: "local       can't compare: no such directory\n"},
 		{name: "single file", status: Status{Files: []codepen.File{{Path: "/a"}}}, want: "files       1 file, 0 B text + 1 binary"},
 	}
 	for _, tt := range tests {
@@ -85,5 +89,21 @@ func TestRender_BuildAndLocalVariants(t *testing.T) {
 				t.Errorf("Render() has %q:\n%s", tt.absent, got)
 			}
 		})
+	}
+}
+
+// A directory that can't be read must not look like one whose files were all
+// deleted: info would then advise a push that deletes everything.
+func TestGather_UnreadableDirectory(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	id := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	client := codepen.New(codepentest.Key, codepen.WithBaseURL(api.URL()))
+	s, err := Gather(t.Context(), client, id, filepath.Join(t.TempDir(), "typo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.LocalErr == nil || !s.Changes.IsEmpty() {
+		t.Errorf("LocalErr = %v, Changes = %+v; want an error and no changes", s.LocalErr, s.Changes)
 	}
 }
