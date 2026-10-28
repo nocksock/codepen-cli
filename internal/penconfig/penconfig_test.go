@@ -12,20 +12,36 @@ func TestID(t *testing.T) {
 		name     string
 		input    string
 		expected string
+		isError  bool
 	}{
 		{name: "with id", input: `{"blocks":{},"id":"PwWmgeN"}`, expected: "PwWmgeN"},
 		{name: "without id", input: `{"blocks":{}}`, expected: ""},
 		{name: "empty", input: ``, expected: ""},
-		{name: "not json", input: `nope`, expected: ""},
-		{name: "id not a string", input: `{"id":42}`, expected: ""},
+		{name: "not json", input: `nope`, isError: true},
+		{name: "trailing comma", input: `{"id":"P1",}`, isError: true},
+		{name: "id not a string", input: `{"id":42}`, isError: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if got := ID([]byte(tt.input)); got != tt.expected {
-				t.Errorf("ID(%q) = %q, want %q", tt.input, got, tt.expected)
+			got, err := ID([]byte(tt.input))
+			if got != tt.expected || (err != nil) != tt.isError {
+				t.Errorf("ID(%q) = %q, %v; want %q, error %v", tt.input, got, err, tt.expected, tt.isError)
 			}
 		})
+	}
+}
+
+// A config that can't be read must not look like "no Pen": push would then
+// create a new Pen on every run.
+func TestRead_RefusesInvalidJSON(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, Name), []byte(`{"id":"P1",}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if id, err := Read(root); err == nil {
+		t.Errorf("Read() = %q, want an error", id)
 	}
 }
 

@@ -26,7 +26,11 @@ func Read(root string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return ID(data), nil
+	id, err := ID(data)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", filepath.Join(root, Name), err)
+	}
+	return id, nil
 }
 
 // Save stores id in root's config, keeping any other fields there.
@@ -54,17 +58,22 @@ func read(root string) ([]byte, error) {
 	return data, nil
 }
 
-// ID returns the Pen id stored in data, or "" when there is none.
-func ID(data []byte) string {
+// ID returns the Pen id stored in data, or "" when there is none. Data that
+// isn't a JSON object, or an id that isn't a string, is an error.
+func ID(data []byte) (string, error) {
 	fields, err := decode(data)
 	if err != nil {
-		return ""
+		return "", err
+	}
+	raw, ok := fields[idKey]
+	if !ok {
+		return "", nil
 	}
 	var id string
-	if json.Unmarshal(fields[idKey], &id) != nil {
-		return ""
+	if err := json.Unmarshal(raw, &id); err != nil {
+		return "", fmt.Errorf("%q is not a string: %w", idKey, err)
 	}
-	return id
+	return id, nil
 }
 
 // WithID returns data with its id set to id. Empty data becomes a new object.
