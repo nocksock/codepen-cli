@@ -83,7 +83,7 @@ func explain(err error) string {
 	case errors.Is(err, codepen.ErrConflict):
 		return "the Pen changed on CodePen since your last sync: run `pen pull` (it keeps your edits), then push again; or push with --force to overwrite it"
 	case errors.Is(err, codepen.ErrUnauthenticated):
-		return "CodePen rejected the API key: check CODEPEN_API_KEY"
+		return "CodePen rejected the API key: check CODEPEN_API_KEY (keys are at https://codepen.io/settings/api)"
 	case errors.Is(err, codepen.ErrNotFound):
 		return "Pen not found. The API only reaches your own Pens (fork someone else's on codepen.io first)"
 	default:

@@ -30,7 +30,7 @@ go install github.com/nocksock/codepen-cli/cmd/pen@latest
 
 ## Quick start
 
-1. **Get an API key.** Create one in your [CodePen settings](https://codepen.io/settings/api) <!-- TODO: confirm URL -->. It starts with `cp_user_`.
+1. **Get an API key.** Create one in your [CodePen settings](https://codepen.io/settings/api). It starts with `cp_user_`.
 2. **Hand it to `pen`.** Export it in your shell, or put it in a `.env` file in the folder you run `pen` from:
 
    ```sh

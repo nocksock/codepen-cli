@@ -62,7 +62,7 @@ func Load(dir string, getenv func(string) (string, bool)) (Config, error) {
 // Key returns the API key, or an error saying where to set it.
 func (c Config) Key() (string, error) {
 	if c.APIKey == "" {
-		return "", fmt.Errorf("CODEPEN_API_KEY is not set: create a key in your CodePen settings, then export it or put it in %s", SecretsFile)
+		return "", fmt.Errorf("CODEPEN_API_KEY is not set: create a key at https://codepen.io/settings/api, then export it or put it in %s", SecretsFile)
 	}
 	if strings.HasPrefix(c.APIKey, "op://") {
 		return "", fmt.Errorf("CODEPEN_API_KEY is a 1Password reference, not a key: resolve it yourself, e.g. `op run -- pen push`, or set the key")
