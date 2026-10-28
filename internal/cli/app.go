@@ -48,6 +48,11 @@ func (a *app) clientConfig(ctx context.Context) (*codepen.Client, config.Config,
 
 // mirror opens the Mirror for the working directory.
 func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
+	return a.mirrorTo(ctx, printer{w: a.env.Stdout, err: a.env.Stderr})
+}
+
+// mirrorTo is mirror with its progress going to reporter.
+func (a *app) mirrorTo(ctx context.Context, reporter pen.Reporter) (*pen.Mirror, config.Config, error) {
 	api, cfg, err := a.clientConfig(ctx)
 	if err != nil {
 		return nil, cfg, err
@@ -56,7 +61,7 @@ func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
 		API:      api,
 		Root:     cfg.Dir,
 		ID:       cfg.PenID,
-		Reporter: printer{w: a.env.Stdout, err: a.env.Stderr},
+		Reporter: reporter,
 		State:    penstate.Store{Dir: penstate.DefaultDir(a.env.GOOS, a.env.Getenv)},
 	})
 	return m, cfg, nil

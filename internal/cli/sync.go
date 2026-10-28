@@ -1,8 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -28,9 +33,13 @@ func newSyncCmd(a *app) *cobra.Command {
 // syncPen pushes, then pushes again whenever the directory changes, until ctx
 // is done. Push errors are reported and watching goes on. Watching starts
 // before the first push so edits made during it are caught, and all pushes
-// run on this goroutine, so they never overlap.
+// run on this goroutine, so they never overlap. Once watching, each line of
+// output starts with the time.
 func (a *app) syncPen(ctx context.Context, force bool) error {
-	m, cfg, err := a.mirror(ctx)
+	isWatching := false
+	stdout := &stamper{w: a.env.Stdout, isOn: &isWatching}
+	stderr := &stamper{w: a.env.Stderr, isOn: &isWatching}
+	m, cfg, err := a.mirrorTo(ctx, printer{w: stdout, err: stderr})
 	if err != nil {
 		return err
 	}
@@ -41,17 +50,54 @@ func (a *app) syncPen(ctx context.Context, force bool) error {
 	push := func() {
 		err := m.Push(ctx, pen.PushOptions{Force: force})
 		if err != nil && ctx.Err() == nil {
-			fmt.Fprintf(a.env.Stderr, "✗ %s\n", explainSync(err))
+			fmt.Fprintf(stderr, "✗ %s\n", explainSync(err))
 		}
 	}
 	push()
-	isRunning := ctx.Err() == nil // false when interrupted during the first push
-	if isRunning {
-		a.printf("watching %s\n", cfg.Dir)
+	if ctx.Err() == nil { // false when interrupted during the first push
+		a.printf("watching %s\n", a.shown(cfg.Dir))
+		isWatching = true
 	}
 	for range changes { // closed once ctx is done
-
 		push()
 	}
 	return nil
+}
+
+// shown is dir as the user would type it: relative to the working directory
+// when inside it.
+func (a *app) shown(dir string) string {
+	rel, err := filepath.Rel(a.env.Dir, dir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return dir
+	}
+	return rel
+}
+
+// stamper starts each line written to w with the time, once *isOn.
+type stamper struct {
+	w         io.Writer
+	isOn      *bool
+	isMidLine bool
+}
+
+func (s *stamper) Write(p []byte) (int, error) {
+	if !*s.isOn {
+		return s.w.Write(p)
+	}
+	var b bytes.Buffer
+	for _, line := range bytes.SplitAfter(p, []byte("\n")) {
+		if len(line) == 0 {
+			continue
+		}
+		if !s.isMidLine {
+			b.WriteString(time.Now().Format("15:04:05 "))
+		}
+		b.Write(line)
+		s.isMidLine = line[len(line)-1] != '\n'
+	}
+	if _, err := s.w.Write(b.Bytes()); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }

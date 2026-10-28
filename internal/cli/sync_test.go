@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/nocksock/codepen-cli/internal/codepen/codepentest"
@@ -12,6 +14,7 @@ func TestSync_PushesChanges(t *testing.T) {
 	s := w.start("sync")
 	s.waitFor(t, `watching`)
 	matches(t, s.out.String(), `^already up to date$`)
+	matches(t, s.out.String(), `^watching \.$`)
 
 	w.write("a.js", "2")
 	s.waitFor(t, `~ /a\.js`)
@@ -20,6 +23,9 @@ func TestSync_PushesChanges(t *testing.T) {
 	w.write("src/new.js", "3")
 	s.waitFor(t, `\+ /src/new\.js`)
 	eventually(t, func() bool { return w.api.Files(id)["/src/new.js"] == "3" }, func() string { return "remote src/new.js = 3" })
+	// Later pushes are stamped with the time, so a long session reads as a log.
+	matches(t, s.out.String(), `^\d\d:\d\d:\d\d   \+ /src/new\.js$`)
+	matches(t, s.out.String(), `^\d\d:\d\d:\d\d pushed 1 file to "`)
 
 	if code := s.stop(); code != 130 {
 		t.Errorf("exit code after cancel = %d, want 130", code)
@@ -59,4 +65,17 @@ func TestSync_RejectsArguments(t *testing.T) {
 	if r := w.run("sync", "extra"); r.code != 2 {
 		t.Errorf("exit code = %d, want 2", r.code)
 	}
+}
+
+// A line written in pieces gets one stamp; output before watching gets none.
+func TestStamper(t *testing.T) {
+	t.Parallel()
+	var out strings.Builder
+	isOn := false
+	s := &stamper{w: &out, isOn: &isOn}
+	fmt.Fprint(s, "before\n")
+	isOn = true
+	fmt.Fprint(s, "a")
+	fmt.Fprint(s, "b\nc\n")
+	matches(t, out.String(), `\Abefore\n\d\d:\d\d:\d\d ab\n\d\d:\d\d:\d\d c\n\z`)
 }
