@@ -14,7 +14,7 @@ pen completion zsh              # shell completion (bash, zsh, fish, powershell)
 pen --version
 ```
 
-`--force` skips the version check and overwrites edits made in the CodePen editor. With `pull <PEN>` and `init <PEN>` it allows switching away from an already connected Pen.
+`--force` skips the version check and overwrites edits made in the CodePen editor. With `pull <PEN>` and `init <PEN>` it allows switching away from an already connected Pen, and replacing local files that differ from the Pen (without it, connecting refuses to replace them).
 
 ## Install
 

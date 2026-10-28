@@ -23,7 +23,7 @@ func newInitCmd(a *app) *cobra.Command {
 			return a.initDir(cmd.Context(), initOptions{penRef: penRef, force: force})
 		},
 	}
-	cmd.Flags().BoolVar(&force, "force", false, "switch to PEN although another Pen is connected")
+	cmd.Flags().BoolVar(&force, "force", false, "switch to PEN although another Pen is connected, and replace differing local files")
 	return cmd
 }
 
