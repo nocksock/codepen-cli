@@ -47,7 +47,6 @@ func (a *app) syncPen(ctx context.Context, force bool) error {
 	push()
 	isRunning := ctx.Err() == nil // false when interrupted during the first push
 	if isRunning {
-		a.showURLs(m.URLs())
 		a.printf("watching %s\n", cfg.Dir)
 	}
 	for range changes { // closed once ctx is done

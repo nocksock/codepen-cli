@@ -17,8 +17,9 @@ func TestPull_EditorURLDownloadsTextAndBinary(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("code %d: %s", r.code, r.stderr)
 	}
-	matches(t, r.stdout, `connected`)
-	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
+	matches(t, r.stdout, `^connected to ".*" \(`+id+`\)$`)
+	matches(t, r.stdout, `^  editor +https://codepen\.io/editor/`)
+	matches(t, r.stdout, `^pulled 3 files$`)
 	if got := w.read("index.html"); got != "<p>hi</p>" {
 		t.Errorf("index.html = %q", got)
 	}
@@ -43,6 +44,10 @@ func TestPull_KeepsLocalEdits(t *testing.T) {
 	}
 	matches(t, r.stdout, `↓ /b\.js`)
 	matches(t, r.stdout, `kept /a\.js`)
+	matches(t, r.stdout, `^pulled 1 file$`)
+	if strings.Contains(r.stdout, "editor") {
+		t.Errorf("a plain pull printed the URLs:\n%s", r.stdout)
+	}
 	if a, b := w.read("a.js"), w.read("b.js"); a != "local" || b != "remote" {
 		t.Errorf("a.js = %q, b.js = %q; want the local edit and the remote one", a, b)
 	}
@@ -120,5 +125,13 @@ func TestPull_SwitchingNeedsForce(t *testing.T) {
 	}
 	if got := w.read("b.js"); got != "2" {
 		t.Errorf("b.js = %q", got)
+	}
+}
+
+func TestPull_NothingNew(t *testing.T) {
+	t.Parallel()
+	w, _ := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	if r := w.run("pull"); r.code != 0 || r.stdout != "already up to date\n" {
+		t.Errorf("code %d, stdout %q; want only the up-to-date line", r.code, r.stdout)
 	}
 }

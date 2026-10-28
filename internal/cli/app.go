@@ -6,7 +6,6 @@ import (
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/config"
-	"github.com/nocksock/codepen-cli/internal/human"
 	"github.com/nocksock/codepen-cli/internal/pen"
 	"github.com/nocksock/codepen-cli/internal/penstate"
 )
@@ -57,7 +56,7 @@ func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
 		API:      api,
 		Root:     cfg.Dir,
 		ID:       cfg.PenID,
-		Reporter: printer{w: a.env.Stdout},
+		Reporter: printer{w: a.env.Stdout, err: a.env.Stderr},
 		State:    penstate.Store{Dir: penstate.DefaultDir(a.env.GOOS, a.env.Getenv)},
 	})
 	return m, cfg, nil
@@ -82,16 +81,4 @@ func (a *app) connected(ctx context.Context) (*codepen.Client, config.Config, er
 
 func (a *app) printf(format string, args ...any) {
 	fmt.Fprintf(a.env.Stdout, format, args...)
-}
-
-// showURLs prints where the Pen can be opened, so every command that talks to
-// one leaves its URL on screen.
-func (a *app) showURLs(urls codepen.URLs) {
-	table := human.Table([]human.Row{
-		{Label: "editor", Value: urls.Editor},
-		{Label: "preview", Value: urls.Preview},
-	})
-	if table != "" {
-		a.printf("%s\n", table)
-	}
 }
