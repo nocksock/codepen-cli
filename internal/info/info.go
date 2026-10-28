@@ -4,7 +4,9 @@ package info
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -79,6 +81,93 @@ func Render(s Status, now time.Time) string {
 		{Label: "editor", Value: p.URLs.Editor},
 		{Label: "preview", Value: p.URLs.Preview},
 	})
+}
+
+// JSON is s for scripts: stable snake_case keys, times in RFC 3339, and the
+// paths a push would change rather than their counts.
+func JSON(s Status) ([]byte, error) {
+	p := s.Pen
+	view := jsonView{
+		ID: p.ID, Title: p.Title, Editor: p.Editor, Access: p.Access, Tags: p.Tags,
+		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt, Versions: s.Versions,
+		Popularity: p.Popularity, URLs: p.URLs,
+		Local: jsonLocal{Upload: []string{}, Delete: s.Changes.Deletes},
+	}
+	if view.Tags == nil {
+		view.Tags = []string{}
+	}
+	if view.Local.Delete == nil {
+		view.Local.Delete = []string{}
+	}
+	if head := p.SavedVersion; head != nil {
+		view.Head = &jsonHead{ID: head.ID, CreatedAt: head.CreatedAt}
+		if b := head.Build; b != nil {
+			view.Build = &jsonBuild{Status: b.Status, Errors: b.Errors}
+		}
+	}
+	for _, f := range s.Files {
+		view.Files.Count++
+		if f.Content == nil {
+			view.Files.Binary++
+		} else {
+			view.Files.TextBytes += int64(len(*f.Content))
+		}
+	}
+	for _, w := range s.Changes.Writes {
+		view.Local.Upload = append(view.Local.Upload, w.Path)
+	}
+	for _, u := range s.Changes.Uploads {
+		view.Local.Upload = append(view.Local.Upload, u.Path)
+	}
+	slices.Sort(view.Local.Upload)
+	if s.LocalErr != nil {
+		msg := s.LocalErr.Error()
+		view.Local.Error = &msg
+	}
+	if p.Deployment != nil {
+		view.DeployedURL = &p.Deployment.URL
+	}
+	return json.MarshalIndent(view, "", "  ")
+}
+
+type jsonView struct {
+	ID          string       `json:"id"`
+	Title       string       `json:"title"`
+	Editor      string       `json:"editor_version"`
+	Access      string       `json:"access"`
+	Tags        []string     `json:"tags"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
+	Versions    int          `json:"versions"`
+	Head        *jsonHead    `json:"head"`
+	Build       *jsonBuild   `json:"build"`
+	Files       jsonFiles    `json:"files"`
+	Local       jsonLocal    `json:"local"`
+	DeployedURL *string      `json:"deployed_url"`
+	Popularity  float64      `json:"popularity"`
+	URLs        codepen.URLs `json:"urls"`
+}
+
+type jsonHead struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type jsonBuild struct {
+	Status string               `json:"status"`
+	Errors []codepen.BuildError `json:"errors"`
+}
+
+type jsonFiles struct {
+	Count     int   `json:"count"`
+	TextBytes int64 `json:"text_bytes"`
+	Binary    int   `json:"binary"`
+}
+
+type jsonLocal struct {
+	Upload []string `json:"upload"`
+	Delete []string `json:"delete"`
+	Error  *string  `json:"error"` // why the directory couldn't be compared
 }
 
 func versions(n int, head *codepen.Version, now time.Time) string {
