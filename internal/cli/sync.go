@@ -41,7 +41,7 @@ func (a *app) syncPen(ctx context.Context, force bool) error {
 	push := func() {
 		err := m.Push(ctx, pen.PushOptions{Force: force})
 		if err != nil && ctx.Err() == nil {
-			fmt.Fprintf(a.env.Stderr, "✗ %s\n", explain(err))
+			fmt.Fprintf(a.env.Stderr, "✗ %s\n", explainSync(err))
 		}
 	}
 	push()

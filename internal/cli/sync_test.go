@@ -33,7 +33,7 @@ func TestSync_ReportsRemoteEdit(t *testing.T) {
 	s.waitFor(t, `watching`)
 	w.api.Edit(id, map[string]string{"a.js": "from the editor"})
 	w.write("a.js", "local")
-	s.waitFor(t, `✗ .*changed remotely`)
+	s.waitFor(t, "✗ the Pen changed on CodePen since your last sync: stop sync, run `pen pull` \\(it keeps your edits\\), then `pen sync` again")
 	if got := w.api.Files(id)["/a.js"]; got != "from the editor" {
 		t.Errorf("remote a.js = %q, the remote edit was overwritten", got)
 	}

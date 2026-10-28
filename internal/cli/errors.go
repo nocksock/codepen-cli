@@ -61,12 +61,20 @@ func report(env Env, err error) int {
 	}
 }
 
+// explainSync is explain for an error while syncing, whose way out differs.
+func explainSync(err error) string {
+	if errors.Is(err, codepen.ErrConflict) {
+		return "the Pen changed on CodePen since your last sync: stop sync, run `pen pull` (it keeps your edits), then `pen sync` again"
+	}
+	return explain(err)
+}
+
 // explain turns the API errors people run into into advice. Other errors may
 // quote the API or a subprocess, so each of their lines is cleaned.
 func explain(err error) string {
 	switch {
 	case errors.Is(err, codepen.ErrConflict):
-		return "the Pen changed remotely (editor?). run `pen pull` first, or push with --force"
+		return "the Pen changed on CodePen since your last sync: run `pen pull` (it keeps your edits), then push again; or push with --force to overwrite it"
 	case errors.Is(err, codepen.ErrNotFound):
 		return "Pen not found. The API only reaches your own Pens (fork someone else's on codepen.io first)"
 	default:
