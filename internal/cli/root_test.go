@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -190,5 +191,31 @@ func TestRun_HelpListsGlobalFlags(t *testing.T) {
 		if !strings.Contains(r.stdout, flag) {
 			t.Errorf("help lacks %q:\n%s", flag, r.stdout)
 		}
+	}
+}
+
+// The README's command table lists exactly the commands pen has.
+func TestReadme_ListsEveryCommand(t *testing.T) {
+	t.Parallel()
+	readme, err := os.ReadFile("../../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := map[string]bool{}
+	for _, m := range regexp.MustCompile("(?m)^\\| `pen ([a-z]+)").FindAllStringSubmatch(string(readme), -1) {
+		listed[m[1]] = true
+	}
+	root := newRoot(&app{})
+	for _, c := range root.Commands() {
+		if c.Name() == "help" {
+			continue
+		}
+		if !listed[c.Name()] {
+			t.Errorf("README's command table lacks pen %s", c.Name())
+		}
+		delete(listed, c.Name())
+	}
+	for name := range listed {
+		t.Errorf("README lists pen %s, which doesn't exist", name)
 	}
 }
