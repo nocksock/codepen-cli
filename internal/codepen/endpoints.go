@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 var lastLink = regexp.MustCompile(`<([^>]+)>;\s*rel="last"`)
@@ -122,31 +123,70 @@ func (c *Client) WriteFiles(ctx context.Context, id string, changes ChangeSet, e
 
 // Download opens the content of a binary file. The caller closes it. The key
 // is not sent: file URLs may point at another host. Only http(s) URLs are
-// fetched, and reading fails past the size limit (see WithMaxDownload). Errors
-// name the URL without query or userinfo, which may carry signed tokens.
+// fetched, and reading fails past the size limit (see WithMaxDownload) or when
+// no bytes arrive for a while (see WithDownloadIdle). Errors name the URL
+// without query or userinfo, which may carry signed tokens.
 func (c *Client) Download(ctx context.Context, fileURL string) (io.ReadCloser, error) {
 	shown := redact(fileURL)
 	if u, err := url.Parse(fileURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, fmt.Errorf("downloading %q: not an http(s) URL", shown)
 	}
+	stalled := fmt.Errorf("downloading %q: stalled, nothing received for %s", shown, c.idle)
+	ctx, cancel := context.WithCancelCause(ctx)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
 	if err != nil {
+		cancel(nil)
 		return nil, fmt.Errorf("downloading %q: %w", shown, withoutURL(err))
 	}
 	resp, err := c.files.Do(req)
 	if err != nil {
+		cancel(nil)
 		return nil, fmt.Errorf("downloading %q: %w", shown, withoutURL(err))
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
 		resp.Body.Close()
+		cancel(nil)
 		return nil, fmt.Errorf("downloading %q: %s", shown, resp.Status)
 	}
 	tooLarge := fmt.Errorf("downloading %q: larger than %d bytes", shown, c.maxSize)
 	if resp.ContentLength > c.maxSize {
 		resp.Body.Close()
+		cancel(nil)
 		return nil, tooLarge
 	}
-	return &capped{body: resp.Body, left: c.maxSize, err: tooLarge}, nil
+	body := &capped{body: resp.Body, left: c.maxSize, err: tooLarge}
+	return watchIdle(ctx, body, c.idle, func() { cancel(stalled) }, func() { cancel(nil) }), nil
+}
+
+// idleBody is a body that calls stall when a Read waits longer than idle, and
+// done once closed. After a stall, reads fail with the cause of ctx.
+type idleBody struct {
+	ctx   context.Context
+	body  io.ReadCloser
+	idle  time.Duration
+	timer *time.Timer
+	done  func()
+}
+
+func watchIdle(ctx context.Context, body io.ReadCloser, idle time.Duration, stall, done func()) *idleBody {
+	return &idleBody{ctx: ctx, body: body, idle: idle, timer: time.AfterFunc(idle, stall), done: done}
+}
+
+func (r *idleBody) Read(p []byte) (int, error) {
+	r.timer.Reset(r.idle)
+	n, err := r.body.Read(p)
+	r.timer.Stop()
+	if err != nil && r.ctx.Err() != nil {
+		return n, context.Cause(r.ctx)
+	}
+	return n, err
+}
+
+func (r *idleBody) Close() error {
+	r.timer.Stop()
+	err := r.body.Close()
+	r.done()
+	return err
 }
 
 // capped reads body until more than left bytes arrive, then fails with err

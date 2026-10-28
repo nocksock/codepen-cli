@@ -20,6 +20,7 @@ const (
 	defaultPollInterval = 2 * time.Second
 	defaultBackoff      = 200 * time.Millisecond
 	requestTimeout      = 30 * time.Second
+	defaultDownloadIdle = 30 * time.Second
 	defaultMaxDownload  = 100 << 20 // bytes
 )
 
@@ -29,9 +30,10 @@ type Client struct {
 	baseURL string
 	poll    time.Duration
 	backoff time.Duration
-	http    *http.Client // API calls
-	files   *http.Client // downloads, which may take longer than one API call
-	maxSize int64        // bytes a download may have
+	http    *http.Client  // API calls
+	files   *http.Client  // downloads, which may take longer than one API call
+	maxSize int64         // bytes a download may have
+	idle    time.Duration // how long a download may go without receiving bytes
 }
 
 // Option configures a Client.
@@ -63,6 +65,12 @@ func WithMaxDownload(n int64) Option {
 	return func(c *Client) { c.maxSize = n }
 }
 
+// WithDownloadIdle sets how long a download may receive nothing before it
+// fails (default: 30s).
+func WithDownloadIdle(d time.Duration) Option {
+	return func(c *Client) { c.idle = d }
+}
+
 // New returns a client that authenticates with key.
 func New(key string, opts ...Option) *Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -75,6 +83,7 @@ func New(key string, opts ...Option) *Client {
 		http:    &http.Client{Transport: transport, Timeout: requestTimeout},
 		files:   &http.Client{Transport: transport},
 		maxSize: defaultMaxDownload,
+		idle:    defaultDownloadIdle,
 	}
 	for _, opt := range opts {
 		opt(c)
