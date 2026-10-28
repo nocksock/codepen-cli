@@ -3,10 +3,12 @@ package pen
 import (
 	"errors"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -315,5 +317,74 @@ func TestMirror_Pull_IgnoresRemoteIDFile(t *testing.T) {
 	}
 	if got := localID(t, root); got != id {
 		t.Errorf("local config id = %q, want %q (a fork's id must not win)", got, id)
+	}
+}
+
+// failingBuilds fails requests for builds while isFailing is set.
+type failingBuilds struct{ isFailing atomic.Bool }
+
+func (f *failingBuilds) RoundTrip(r *http.Request) (*http.Response, error) {
+	if f.isFailing.Load() && strings.Contains(r.URL.Path, "/builds/") {
+		return nil, errors.New("connection reset")
+	}
+	return http.DefaultTransport.RoundTrip(r)
+}
+
+// A push whose write went through but whose build couldn't be followed leaves
+// the tracked head behind. The next push must catch up, not conflict forever.
+func TestMirror_Push_RecoversAfterLosingTheBuild(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	api.QueueBuilds(true)
+	id := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	root := t.TempDir()
+	builds := &failingBuilds{}
+	client := codepen.New(codepentest.Key,
+		codepen.WithBaseURL(api.URL()),
+		codepen.WithPollInterval(time.Millisecond),
+		codepen.WithBackoff(time.Millisecond),
+		codepen.WithHTTPClient(&http.Client{Transport: builds}),
+	)
+	m := Open(Config{API: client, Root: root, ID: id, Reporter: &recorder{}})
+	if err := m.Pull(t.Context(), PullOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	builds.isFailing.Store(true)
+	writeFile(t, root, "a.js", "2")
+	if err := m.Push(t.Context(), PushOptions{}); err == nil {
+		t.Fatal("Push() succeeded although the build couldn't be followed")
+	}
+
+	builds.isFailing.Store(false)
+	writeFile(t, root, "a.js", "3")
+	if err := m.Push(t.Context(), PushOptions{}); err != nil {
+		t.Fatalf("Push() after a lost build: %v", err)
+	}
+	if got := api.Files(id)["/a.js"]; got != "3" {
+		t.Errorf("remote a.js = %q, want 3", got)
+	}
+}
+
+// A conflict means someone else changed the Pen; later pushes must keep
+// refusing instead of quietly overwriting their edit.
+func TestMirror_Push_KeepsRefusingAfterConflict(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	id := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	root := t.TempDir()
+	m, _ := open(t, api, root, id)
+	if err := m.Pull(t.Context(), PullOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	api.Edit(id, map[string]string{"a.js": "theirs"})
+	for _, content := range []string{"2", "3"} {
+		writeFile(t, root, "a.js", content)
+		if err := m.Push(t.Context(), PushOptions{}); !errors.Is(err, codepen.ErrConflict) {
+			t.Fatalf("Push(%s) = %v, want ErrConflict", content, err)
+		}
+	}
+	if got := api.Files(id)["/a.js"]; got != "theirs" {
+		t.Errorf("remote a.js = %q, want theirs", got)
 	}
 }
