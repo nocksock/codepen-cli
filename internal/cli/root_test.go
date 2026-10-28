@@ -123,3 +123,15 @@ func TestRun_Interrupted(t *testing.T) {
 		t.Errorf("push = exit %d, stderr %q; want 130 and nothing", code, stderr.String())
 	}
 }
+
+func TestRun_HelpTopics(t *testing.T) {
+	t.Parallel()
+	w := newWorkspace(t, nil)
+	if r := w.run("help", "push"); r.code != 0 || !strings.Contains(r.stdout, "pen push") {
+		t.Errorf("help push = exit %d, stdout %q", r.code, r.stdout)
+	}
+	r := w.run("help", "bogus")
+	if r.code != 2 || !strings.Contains(r.stderr, `unknown help topic "bogus"`) {
+		t.Errorf("help bogus = exit %d, stderr %q; want 2 naming the topic", r.code, r.stderr)
+	}
+}
