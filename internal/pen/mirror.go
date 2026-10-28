@@ -41,11 +41,15 @@ type Mirror struct {
 	id         string
 	head       string // version id of the tracked head
 	title      string
+	editor     string // "V2" for 2.0 Pens; Classic Pens can't be written
 	urls       codepen.URLs
 	remote     map[string]codepen.File
 	isTracking bool
 	build      codepen.Build // the last settled build
 }
+
+// ErrNotConnected is a pull or push that needs a Pen, in a folder without one.
+var ErrNotConnected = errors.New("no Pen connected: run `pen push` or `pen pull <PEN>`")
 
 // BuildFailedError is a push whose files were saved, but whose build failed.
 type BuildFailedError struct{ Errors int }
@@ -82,12 +86,15 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 			return err
 		}
 	}
+	if m.editor != "" && m.editor != "V2" {
+		return fmt.Errorf("%s is a Classic Pen: it can be pulled, but only 2.0 Pens can be pushed", m.id)
+	}
 	local, err := tree.Read(m.cfg.Root)
 	if err != nil {
 		return err
 	}
 	if len(local) == 0 {
-		return fmt.Errorf("refusing to push: %q is empty (would delete every file)", m.cfg.Root)
+		return fmt.Errorf("refusing to push: %q is empty, which would delete every file in the Pen; add files, or run `pen pull`", m.cfg.Root)
 	}
 	changes := diff.Between(local, m.remote)
 	if changes.IsEmpty() {
@@ -293,7 +300,7 @@ func (m *Mirror) target(penRef string) (string, error) {
 	if m.id != "" {
 		return m.id, nil
 	}
-	return "", errors.New("no Pen to pull: pass a Pen id or URL")
+	return "", ErrNotConnected
 }
 
 // fetch loads the Pen's head and tracks it.
@@ -302,7 +309,7 @@ func (m *Mirror) fetch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	m.title, m.urls = meta.Title, meta.URLs
+	m.title, m.editor, m.urls = meta.Title, meta.Editor, meta.URLs
 	head := ""
 	if meta.SavedVersion != nil {
 		head = meta.SavedVersion.ID

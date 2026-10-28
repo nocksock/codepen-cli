@@ -9,6 +9,7 @@ import (
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/human"
+	"github.com/nocksock/codepen-cli/internal/pen"
 )
 
 // usageError is a mistake in how the pen CLI was called: exit 2 with the usage text.
@@ -23,7 +24,7 @@ func (e usageError) Error() string {
 
 func (e usageError) Unwrap() error { return e.err }
 
-var errNotConnected = errors.New("no Pen connected: run `pen push` or `pen pull <PEN>`")
+var errNotConnected = pen.ErrNotConnected
 
 // noArgs refuses any argument, with the same wording for every command.
 func noArgs(cmd *cobra.Command, args []string) error {
@@ -81,6 +82,8 @@ func explain(err error) string {
 	switch {
 	case errors.Is(err, codepen.ErrConflict):
 		return "the Pen changed on CodePen since your last sync: run `pen pull` (it keeps your edits), then push again; or push with --force to overwrite it"
+	case errors.Is(err, codepen.ErrUnauthenticated):
+		return "CodePen rejected the API key: check CODEPEN_API_KEY"
 	case errors.Is(err, codepen.ErrNotFound):
 		return "Pen not found. The API only reaches your own Pens (fork someone else's on codepen.io first)"
 	default:

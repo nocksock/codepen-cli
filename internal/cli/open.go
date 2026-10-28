@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -66,7 +67,10 @@ func (a *app) openPen(ctx context.Context, target string) error {
 	}
 	href := targets[target](p)
 	if href == "" {
-		return fmt.Errorf("the Pen has no %s URL (not deployed?)", target)
+		if target == "live" {
+			return errors.New("the Pen isn't deployed, so it has no live URL; deploy it from the CodePen editor")
+		}
+		return fmt.Errorf("the Pen has no %s URL", target)
 	}
 	name, args, err := browser.Command(a.env.GOOS, href)
 	if err != nil {
@@ -74,7 +78,7 @@ func (a *app) openPen(ctx context.Context, target string) error {
 	}
 	a.printf("%s\n", human.Clean(href))
 	if err := a.env.Runner.Start(name, args...); err != nil {
-		a.printf("could not launch a browser; open %s\n", human.Clean(href))
+		fmt.Fprintln(a.env.Stderr, "could not launch a browser: open the URL above yourself")
 	}
 	return nil
 }
