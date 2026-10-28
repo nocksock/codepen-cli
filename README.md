@@ -68,6 +68,6 @@ just vuln       # govulncheck
 just snapshot   # cross-compile release archives into dist/ without publishing
 ```
 
-CI runs the same three checks on every push to `main` and every pull request; pushing a `v*` tag publishes a release.
+CI runs these checks, plus `golangci-lint fmt --diff` and `goreleaser check`, on every push to `main` and every pull request. Pushing a `v*` tag runs them again and publishes a release only if they pass.
 
 The CLI tests in `internal/cli` run `cli.Run` in-process against an in-memory fake CodePen API (`internal/codepen/codepentest`), in temp directories, with a recording stand-in for the browser. They need no network or API key. `CODEPEN_API_URL` and `CODEPEN_POLL_MS` point `pen` at another API and speed up build polling.
