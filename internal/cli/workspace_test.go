@@ -49,6 +49,7 @@ func newWorkspace(t *testing.T, files map[string]string) *workspace {
 			"CODEPEN_API_KEY": codepentest.Key,
 			"CODEPEN_API_URL": api.URL(),
 			"CODEPEN_POLL_MS": "5",
+			"XDG_STATE_HOME":  t.TempDir(),
 		},
 	}
 	for p, content := range files {

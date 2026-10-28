@@ -7,7 +7,7 @@ type Reporter interface {
 	Report(Event)
 }
 
-// Event is one step of a push or pull: Planned, Built, Downloaded, Created or Connected.
+// Event is one step of a push or pull: Planned, Built, Downloaded, Kept, Created or Connected.
 type Event interface {
 	event()
 }
@@ -21,6 +21,9 @@ type Built struct{ Build codepen.Build }
 // Downloaded is a remote file written locally.
 type Downloaded struct{ Path string }
 
+// Kept is a local edit a pull left alone, because the Pen's file is unchanged.
+type Kept struct{ Path string }
+
 // Created is a Pen made by the first push.
 type Created struct{ URLs codepen.URLs }
 
@@ -30,5 +33,6 @@ type Connected struct{ URLs codepen.URLs }
 func (Planned) event()    {}
 func (Built) event()      {}
 func (Downloaded) event() {}
+func (Kept) event()       {}
 func (Created) event()    {}
 func (Connected) event()  {}

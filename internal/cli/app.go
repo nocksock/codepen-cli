@@ -8,6 +8,7 @@ import (
 	"github.com/nocksock/codepen-cli/internal/config"
 	"github.com/nocksock/codepen-cli/internal/human"
 	"github.com/nocksock/codepen-cli/internal/pen"
+	"github.com/nocksock/codepen-cli/internal/penstate"
 )
 
 // app builds what the commands need from Env.
@@ -57,6 +58,7 @@ func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
 		Root:     cfg.Dir,
 		ID:       cfg.PenID,
 		Reporter: printer{w: a.env.Stdout},
+		State:    penstate.Store{Dir: penstate.DefaultDir(a.env.GOOS, a.env.Getenv)},
 	})
 	return m, cfg, nil
 }

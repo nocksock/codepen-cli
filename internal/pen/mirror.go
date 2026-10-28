@@ -17,6 +17,7 @@ import (
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/diff"
 	"github.com/nocksock/codepen-cli/internal/penconfig"
+	"github.com/nocksock/codepen-cli/internal/penstate"
 	"github.com/nocksock/codepen-cli/internal/ref"
 	"github.com/nocksock/codepen-cli/internal/tree"
 )
@@ -24,9 +25,10 @@ import (
 // Config is what a Mirror needs.
 type Config struct {
 	API      *codepen.Client
-	Root     string   // absolute directory to mirror
-	ID       string   // connected Pen; "" when none
-	Reporter Reporter // required
+	Root     string         // absolute directory to mirror
+	ID       string         // connected Pen; "" when none
+	Reporter Reporter       // required
+	State    penstate.Store // where the last sync is remembered
 }
 
 // Mirror is a local directory mirrored to a Pen. Between calls it remembers the
@@ -154,9 +156,24 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 		*m = before
 		return err
 	}
-	if replaced := m.replaced(local); before.id != id && len(replaced) > 0 && !opts.Force {
+	state, err := m.cfg.State.Load(m.cfg.Root)
+	if err != nil {
 		*m = before
-		return fmt.Errorf("connecting to %s would replace %s here; pass --force to replace them", id, strings.Join(replaced, ", "))
+		return err
+	}
+	base := map[string]string{}
+	if state.Pen == id {
+		base = state.Files
+	}
+	writes, kept, conflicts := m.merge(local, base)
+	if len(conflicts) > 0 && !opts.Force {
+		*m = before
+		return refusal(id, before.id != id, len(base) > 0, conflicts)
+	}
+	writes = slices.Sorted(slices.Values(append(writes, conflicts...)))
+	if err := m.checkPaths(); err != nil {
+		*m = before
+		return err
 	}
 	if err := m.recordID(); err != nil {
 		*m = before
@@ -165,7 +182,45 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 	if before.id != id {
 		m.cfg.Reporter.Report(Connected{URLs: m.urls})
 	}
-	return m.writeBack(ctx, local)
+	for _, p := range kept {
+		m.cfg.Reporter.Report(Kept{Path: p})
+	}
+	if err := m.write(ctx, writes); err != nil {
+		return err
+	}
+	return m.saveState()
+}
+
+// merge sorts the remote files that differ locally, judged against base, the
+// files as of the last sync: writes are files missing here or untouched since,
+// kept are local edits to files unchanged remotely, and conflicts changed on
+// both sides, or can't be told apart without a base.
+func (m *Mirror) merge(local tree.Snapshot, base map[string]string) (writes, kept, conflicts []string) {
+	for _, p := range m.stale(local) {
+		data, exists := local[p]
+		synced, hasBase := base[p]
+		switch {
+		case !exists || (hasBase && penstate.Sum(data) == synced):
+			writes = append(writes, p)
+		case hasBase && penstate.FileSum(m.remote[p]) == synced:
+			kept = append(kept, p)
+		default:
+			conflicts = append(conflicts, p)
+		}
+	}
+	return writes, kept, conflicts
+}
+
+func refusal(id string, isConnecting, hasBase bool, conflicts []string) error {
+	paths := strings.Join(conflicts, ", ")
+	switch {
+	case isConnecting:
+		return fmt.Errorf("connecting to %s would replace %s here; pass --force to replace them", id, paths)
+	case hasBase:
+		return fmt.Errorf("%s changed both here and on CodePen since the last sync; pass --force to take CodePen's version", paths)
+	default:
+		return fmt.Errorf("%s differ from the Pen, and there's no record of the last sync to tell which side changed; pass --force to take the Pen's version", paths)
+	}
 }
 
 func (m *Mirror) target(penRef string) (string, error) {
@@ -250,20 +305,44 @@ func (m *Mirror) recordID() error {
 }
 
 // writeBack writes every file in stale(local), after checking that the
-// directory can hold all of the Pen's files.
+// directory can hold all of the Pen's files, and remembers the sync.
 func (m *Mirror) writeBack(ctx context.Context, local tree.Snapshot) error {
-	paths := slices.DeleteFunc(slices.Collect(maps.Keys(m.remote)), tree.IsIgnored)
-	slices.Sort(paths)
-	if err := tree.CheckPaths(paths); err != nil {
+	if err := m.checkPaths(); err != nil {
 		return err
 	}
-	for _, p := range m.stale(local) {
+	if err := m.write(ctx, m.stale(local)); err != nil {
+		return err
+	}
+	return m.saveState()
+}
+
+// checkPaths fails unless the directory can hold every one of the Pen's files.
+func (m *Mirror) checkPaths() error {
+	paths := slices.DeleteFunc(slices.Collect(maps.Keys(m.remote)), tree.IsIgnored)
+	slices.Sort(paths)
+	return tree.CheckPaths(paths)
+}
+
+// write downloads the given remote files into the directory.
+func (m *Mirror) write(ctx context.Context, paths []string) error {
+	for _, p := range paths {
 		if err := m.download(ctx, m.remote[p]); err != nil {
 			return err
 		}
 		m.cfg.Reporter.Report(Downloaded{Path: p})
 	}
 	return nil
+}
+
+// saveState remembers the tracked head as the last sync.
+func (m *Mirror) saveState() error {
+	files := map[string]string{}
+	for p, file := range m.remote {
+		if !tree.IsIgnored(p) {
+			files[p] = penstate.FileSum(file)
+		}
+	}
+	return m.cfg.State.Save(m.cfg.Root, penstate.State{Pen: m.id, Version: m.head, Files: files})
 }
 
 // stale lists the tracked remote files that local lacks or differs from, in
@@ -280,14 +359,6 @@ func (m *Mirror) stale(local tree.Snapshot) []string {
 		paths = append(paths, p)
 	}
 	return paths
-}
-
-// replaced lists the local files a writeBack would overwrite.
-func (m *Mirror) replaced(local tree.Snapshot) []string {
-	return slices.DeleteFunc(m.stale(local), func(p string) bool {
-		_, exists := local[p]
-		return !exists
-	})
 }
 
 func (m *Mirror) download(ctx context.Context, file codepen.File) error {
