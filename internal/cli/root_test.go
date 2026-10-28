@@ -135,3 +135,18 @@ func TestRun_HelpTopics(t *testing.T) {
 		t.Errorf("help bogus = exit %d, stderr %q; want 2 naming the topic", r.code, r.stderr)
 	}
 }
+
+// Each command's short help (pen CMD -h, completions) says what its line in
+// the usage text says, so the two can't drift apart.
+func TestCommands_ShortMatchesUsage(t *testing.T) {
+	t.Parallel()
+	root := newRoot(&app{})
+	for _, c := range root.Commands() {
+		if c.Name() == "help" || c.Name() == "completion" {
+			continue
+		}
+		if !strings.Contains(usageText(), c.Short) {
+			t.Errorf("pen %s: Short %q is not in the usage text", c.Name(), c.Short)
+		}
+	}
+}

@@ -10,7 +10,7 @@ func newPushCmd(a *app) *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "push",
-		Short: "push local files (creates a Pen if CODEPEN_ID is unset)",
+		Short: "push local files (creates a Pen if none is connected)",
 		Args:  noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			m, _, err := a.mirror(cmd.Context())
