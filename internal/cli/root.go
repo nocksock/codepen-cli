@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"runtime/debug"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -63,6 +64,7 @@ func newRoot(a *app) *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err: err} })
 	root.AddCommand(newInitCmd(a), newPushCmd(a), newPullCmd(a), newSyncCmd(a), newInfoCmd(a), newOpenCmd(a))
 	strictCompletion(root)
+	strictHelp(root)
 	help := root.HelpFunc()
 	root.SetHelpFunc(func(c *cobra.Command, args []string) {
 		if c != root {
@@ -72,6 +74,24 @@ func newRoot(a *app) *cobra.Command {
 		fmt.Fprintln(c.OutOrStdout(), usageText())
 	})
 	return root
+}
+
+// strictHelp makes `pen help TOPIC` report an unknown topic as a usage error
+// (exit 2), instead of printing the usage and exiting 0.
+func strictHelp(root *cobra.Command) {
+	root.InitDefaultHelpCmd()
+	for _, c := range root.Commands() {
+		if c.Name() != "help" {
+			continue
+		}
+		c.RunE = func(_ *cobra.Command, args []string) error {
+			topic, _, err := root.Find(args)
+			if err != nil || (topic == root && len(args) > 0) {
+				return usageError{err: fmt.Errorf("unknown help topic %q", strings.Join(args, " "))}
+			}
+			return topic.Help()
+		}
+	}
 }
 
 const shells = "bash, zsh, fish or powershell"
