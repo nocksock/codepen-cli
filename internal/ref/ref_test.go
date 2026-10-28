@@ -27,6 +27,8 @@ func TestParse(t *testing.T) {
 		{name: "template uuid", input: "https://codepen.io/pen/?template=" + uuid, expected: uuid},
 		{name: "uppercase uuid", input: strings.ToUpper(uuid), expected: strings.ToUpper(uuid)},
 		{name: "template wins over path id", input: "https://codepen.io/u/pen/PwWmgeN?template=" + uuid, expected: uuid},
+		{name: "editor url with classic id", input: "https://codepen.io/editor/nocksock/pen/PwWmgeN", expected: "PwWmgeN"},
+		{name: "debug on cdpn.io", input: "https://cdpn.io/pen/debug/PwWmgeN", expected: "PwWmgeN"},
 		{name: "template classic", input: "https://codepen.io/pen?template=PwWmgeN", expected: "PwWmgeN"},
 	}
 	for _, tt := range tests {
@@ -55,6 +57,8 @@ func TestParse_Rejects(t *testing.T) {
 		{name: "prose", input: "not an id"},
 		{name: "bare view word", input: "editor"},
 		{name: "view without id", input: "https://codepen.io/pen/"},
+		{name: "editor without id", input: "https://codepen.io/editor/nocksock"},
+		{name: "id not right after the view", input: "https://codepen.io/u/pen/x-y/PwWmgeN"},
 		{name: "percent-encoded id", input: "https://codepen.io/u/pen/Pw%57mgeN"},
 	}
 	for _, tt := range tests {

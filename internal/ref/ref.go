@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -21,11 +22,14 @@ var (
 	schemePattern  = regexp.MustCompile(`(?i)^[a-z]+://`)
 )
 
-// views are path segments naming a view of a Pen; the Classic id follows one of them.
+// views are path segments naming a view of a Pen; the Classic id follows them.
 var views = map[string]bool{
 	"pen": true, "full": true, "details": true, "debug": true, "embed": true, "preview": true,
-	"pres": true, "live": true, "fullpage": true, "fullcpgrid": true, "fullembedgrid": true, "editor": true,
+	"pres": true, "live": true, "fullpage": true, "fullcpgrid": true, "fullembedgrid": true,
 }
+
+// prefixes start a URL path before the user name, so the id doesn't follow them.
+var prefixes = map[string]bool{"editor": true}
 
 // Parse returns the Pen id that ref points at: a bare id or any URL containing one.
 func Parse(ref string) (string, error) {
@@ -40,7 +44,7 @@ func Parse(ref string) (string, error) {
 }
 
 func isID(value string) bool {
-	return uuidPattern.MatchString(value) || (classicPattern.MatchString(value) && !views[value])
+	return uuidPattern.MatchString(value) || (classicPattern.MatchString(value) && !views[value] && !prefixes[value])
 }
 
 func fromURL(value string) string {
@@ -78,19 +82,18 @@ func firstUUID(segments []string) string {
 	return ""
 }
 
-// afterView returns the first id following the first view segment.
+// afterView returns the id right after the first run of view segments, as in
+// /user/pen/<id> or /user/embed/preview/<id>; "" when something else is there.
 func afterView(segments []string) string {
-	for i, segment := range segments {
-		if !views[segment] {
-			continue
-		}
-		for _, next := range segments[i+1:] {
-			if isID(next) {
-				return next
-			}
-		}
-		// Only the first view segment counts.
+	i := slices.IndexFunc(segments, func(s string) bool { return views[s] })
+	if i < 0 {
 		return ""
+	}
+	for i < len(segments) && views[segments[i]] {
+		i++
+	}
+	if i < len(segments) && isID(segments[i]) {
+		return segments[i]
 	}
 	return ""
 }
