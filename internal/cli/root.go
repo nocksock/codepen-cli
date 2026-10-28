@@ -60,6 +60,7 @@ func newRoot(a *app) *cobra.Command {
 	// Before strictCompletion: Cobra's completion commands capture the writers.
 	root.SetOut(a.env.Stdout)
 	root.SetErr(a.env.Stderr)
+	root.PersistentFlags().BoolVarP(&a.isQuiet, "quiet", "q", false, "print errors only")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err: err} })
 	root.AddCommand(newPushCmd(a), newPullCmd(a), newSyncCmd(a), newInfoCmd(a), newOpenCmd(a))
 	strictCompletion(root)

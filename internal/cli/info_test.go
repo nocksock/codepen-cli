@@ -68,3 +68,10 @@ func TestInfo_Help(t *testing.T) {
 		t.Errorf("code %d, stdout %q, stderr %q", r.code, r.stdout, r.stderr)
 	}
 }
+
+// Quiet only silences progress; what was asked for still prints.
+func TestInfo_Quiet(t *testing.T) {
+	t.Parallel()
+	w, _ := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	matches(t, w.run("info", "-q").stdout, `^local +in sync$`)
+}
