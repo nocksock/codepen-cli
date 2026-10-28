@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/config"
@@ -11,7 +12,19 @@ import (
 )
 
 // app builds what the commands need from Env.
-type app struct{ env Env }
+type app struct {
+	env     Env
+	isQuiet bool // -q: progress is not printed
+}
+
+// progress is where progress goes: stdout, or nowhere when quiet. Errors and
+// what a command was asked to show are printed regardless.
+func (a *app) progress() io.Writer {
+	if a.isQuiet {
+		return io.Discard
+	}
+	return a.env.Stdout
+}
 
 func (a *app) config() (config.Config, error) {
 	return config.Load(a.env.Dir, a.env.Getenv)
@@ -48,7 +61,7 @@ func (a *app) clientConfig(ctx context.Context) (*codepen.Client, config.Config,
 
 // mirror opens the Mirror for the working directory.
 func (a *app) mirror(ctx context.Context) (*pen.Mirror, config.Config, error) {
-	return a.mirrorTo(ctx, printer{w: a.env.Stdout, err: a.env.Stderr})
+	return a.mirrorTo(ctx, printer{w: a.progress(), err: a.env.Stderr})
 }
 
 // mirrorTo is mirror with its progress going to reporter.

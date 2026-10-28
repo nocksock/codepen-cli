@@ -79,3 +79,15 @@ func TestStamper(t *testing.T) {
 	fmt.Fprint(s, "b\nc\n")
 	matches(t, out.String(), `\Abefore\n\d\d:\d\d:\d\d ab\n\d\d:\d\d:\d\d c\n\z`)
 }
+
+func TestSync_Quiet(t *testing.T) {
+	t.Parallel()
+	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	s := w.start("sync", "-q")
+	eventually(t, func() bool { return w.api.Calls(`^GET /v2/pens/`+id+`$`) > 1 }, func() string { return "the first push" })
+	w.write("a.js", "2")
+	eventually(t, func() bool { return w.api.Files(id)["/a.js"] == "2" }, func() string { return "remote a.js = 2" })
+	if out := s.out.String(); out != "" {
+		t.Errorf("output = %q, want nothing", out)
+	}
+}

@@ -159,3 +159,22 @@ func TestPush_FailedBuild(t *testing.T) {
 		t.Errorf("remote a.js = %q, want the pushed file", got)
 	}
 }
+
+// Quiet leaves stdout empty, but errors still reach stderr.
+func TestPush_Quiet(t *testing.T) {
+	t.Parallel()
+	w := newWorkspace(t, map[string]string{"a.js": "1"})
+	for _, flag := range []string{"-q", "--quiet"} {
+		w.write("a.js", flag)
+		if r := w.run("push", flag); r.code != 0 || r.stdout != "" {
+			t.Errorf("push %s: code %d, stdout %q; want nothing", flag, r.code, r.stdout)
+		}
+	}
+	w.api.FailBuilds(codepen.BuildError{Path: "/a.js", Message: "bad"})
+	w.write("a.js", "broken")
+	r := w.run("-q", "push")
+	if r.code != 1 || r.stdout != "" {
+		t.Errorf("failed build: code %d, stdout %q; want 1 and nothing", r.code, r.stdout)
+	}
+	matches(t, r.stderr, `✗ /a\.js bad`)
+}

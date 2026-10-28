@@ -37,7 +37,7 @@ func newSyncCmd(a *app) *cobra.Command {
 // output starts with the time.
 func (a *app) syncPen(ctx context.Context, force bool) error {
 	isWatching := false
-	stdout := &stamper{w: a.env.Stdout, isOn: &isWatching}
+	stdout := &stamper{w: a.progress(), isOn: &isWatching}
 	stderr := &stamper{w: a.env.Stderr, isOn: &isWatching}
 	m, cfg, err := a.mirrorTo(ctx, printer{w: stdout, err: stderr})
 	if err != nil {
@@ -55,7 +55,7 @@ func (a *app) syncPen(ctx context.Context, force bool) error {
 	}
 	push()
 	if ctx.Err() == nil { // false when interrupted during the first push
-		a.printf("watching %s\n", a.shown(cfg.Dir))
+		fmt.Fprintf(a.progress(), "watching %s\n", a.shown(cfg.Dir))
 		isWatching = true
 	}
 	for range changes { // closed once ctx is done
