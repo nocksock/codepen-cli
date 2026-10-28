@@ -129,7 +129,11 @@ func (w *workspace) remove(p string) {
 // penID is the Pen id stored in the workspace's .codepen.config.json.
 func (w *workspace) penID() string {
 	w.t.Helper()
-	return penconfig.ID([]byte(w.read(penconfig.Name)))
+	id, err := penconfig.ID([]byte(w.read(penconfig.Name)))
+	if err != nil {
+		w.t.Fatal(err)
+	}
+	return id
 }
 
 func (w *workspace) exists(p string) bool {
