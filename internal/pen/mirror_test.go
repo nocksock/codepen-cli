@@ -417,3 +417,28 @@ func TestMirror_Pull_ConnectingKeepsDifferingLocalFiles(t *testing.T) {
 		t.Errorf("index.html = %q after --force, want theirs", data)
 	}
 }
+
+// A Pen this directory can't hold as is (a bad path, or names a case-insensitive
+// filesystem would merge) is refused before anything is written.
+func TestMirror_Pull_ChecksEveryPathBeforeWriting(t *testing.T) {
+	t.Parallel()
+	tests := map[string]map[string]string{
+		"outside the root":    {"a.js": "1", "z/../../x": "2"},
+		"differ only in case": {"a.js": "1", "App.js": "2", "app.js": "3"},
+	}
+	for problem, files := range tests {
+		t.Run(problem, func(t *testing.T) {
+			t.Parallel()
+			api := codepentest.Start(t)
+			id := api.Seed(codepentest.Seed{Files: files})
+			root := t.TempDir()
+			m, _ := open(t, api, root, "")
+			if err := m.Pull(t.Context(), PullOptions{Ref: id}); err == nil {
+				t.Fatal("Pull() succeeded")
+			}
+			if _, err := os.Stat(filepath.Join(root, "a.js")); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("a.js was written before the pull failed")
+			}
+		})
+	}
+}

@@ -274,3 +274,30 @@ func keys(s Snapshot) []string {
 	}
 	return out
 }
+
+func TestCheckPaths(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		paths   []string
+		problem string // part of the error; "" for none
+	}{
+		{name: "plain paths", paths: []string{"/a.js", "/src/a.js", "/b.css"}},
+		{name: "outside the root", paths: []string{"/a.js", "/z/../../x"}, problem: "not a file path inside"},
+		{name: "same name in another case", paths: []string{"/App.js", "/app.js"}, problem: "same file"},
+		{name: "folders in another case", paths: []string{"/Src/a.js", "/src/b.js"}, problem: "same file"},
+		{name: "trailing dot on Windows", paths: []string{"/a.js", "/a.js."}, problem: "same file"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := CheckPaths(tt.paths)
+			if tt.problem == "" && err != nil {
+				t.Errorf("CheckPaths(%q) = %v", tt.paths, err)
+			}
+			if tt.problem != "" && (err == nil || !strings.Contains(err.Error(), tt.problem)) {
+				t.Errorf("CheckPaths(%q) = %v, want %q", tt.paths, err, tt.problem)
+			}
+		})
+	}
+}
