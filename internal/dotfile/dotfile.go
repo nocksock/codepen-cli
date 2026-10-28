@@ -47,12 +47,12 @@ func Ensure(path, content string, perm fs.FileMode) (Status, error) {
 	if err != nil {
 		return Unknown, fmt.Errorf("creating %q: %w", path, err)
 	}
+	// A partly written file is removed: left behind, it would be kept forever.
 	if _, err := file.WriteString(content); err != nil {
-		_ = file.Close()
-		return Unknown, fmt.Errorf("writing %q: %w", path, err)
+		return Unknown, errors.Join(fmt.Errorf("writing %q: %w", path, err), file.Close(), os.Remove(path))
 	}
 	if err := file.Close(); err != nil {
-		return Unknown, fmt.Errorf("closing %q: %w", path, err)
+		return Unknown, errors.Join(fmt.Errorf("closing %q: %w", path, err), os.Remove(path))
 	}
 	return Created, nil
 }
@@ -74,14 +74,27 @@ func EnsureLines(path string, lines []string) (Status, error) {
 	if len(missing) == 0 {
 		return Kept, nil
 	}
+	addition := strings.Join(missing, "\n") + "\n"
 	if text != "" && !strings.HasSuffix(text, "\n") {
-		text += "\n"
+		addition = "\n" + addition
 	}
-	text += strings.Join(missing, "\n") + "\n"
-	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+	if err := appendText(path, addition); err != nil {
 		return Unknown, fmt.Errorf("writing %q: %w", path, err)
 	}
 	return Updated, nil
+}
+
+// appendText adds text at the end of path. Unlike rewriting the file, a
+// failure can only lose the addition, never what was there.
+func appendText(path, text string) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		return err
+	}
+	if _, err := file.WriteString(text); err != nil {
+		return errors.Join(err, file.Close())
+	}
+	return file.Close()
 }
 
 func missingLines(text string, lines []string) []string {
