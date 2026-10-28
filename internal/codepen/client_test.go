@@ -122,17 +122,19 @@ func TestClient_ErrorsNeverContainTheKey(t *testing.T) {
 func TestClient_Retries(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
-		statuses []int // replies in order; the last one repeats
-		call     func(context.Context, *codepen.Client) error
-		attempts int32
-		isError  bool
+		name       string
+		statuses   []int // replies in order; the last one repeats
+		retryAfter string
+		call       func(context.Context, *codepen.Client) error
+		attempts   int32
+		isError    bool
 	}{
 		{name: "get retries 503", statuses: []int{503, 503, 200}, call: getPen, attempts: 3},
 		{name: "get gives up after 4 retries", statuses: []int{503}, call: getPen, attempts: 5, isError: true},
 		{name: "get does not retry 404", statuses: []int{404}, call: getPen, attempts: 1, isError: true},
 		{name: "put retries 429", statuses: []int{429, 200}, call: putFiles, attempts: 2},
 		{name: "put does not retry 503", statuses: []int{503}, call: putFiles, attempts: 1, isError: true},
+		{name: "a long retry-after is not waited for", statuses: []int{429}, retryAfter: "3600", call: getPen, attempts: 1, isError: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -141,6 +143,9 @@ func TestClient_Retries(t *testing.T) {
 			api := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
 				n := int(attempts.Add(1)) - 1
 				status := tt.statuses[min(n, len(tt.statuses)-1)]
+				if tt.retryAfter != "" {
+					w.Header().Set("Retry-After", tt.retryAfter)
+				}
 				w.WriteHeader(status)
 				w.Write([]byte(`{"build":{"id":"b1"}}`))
 			})
