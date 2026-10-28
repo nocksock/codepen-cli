@@ -1,73 +1,136 @@
 # pen
 
-Mirror a local directory to a CodePen 2.0 Pen. A single Go binary.
+Edit a CodePen in your own editor. `pen` mirrors a local folder to a [CodePen 2.0](https://codepen.io) Pen, so you can work with your editor, git and tools while CodePen builds and hosts the result.
 
-```sh
-pen init [PEN]  # add env files to .gitignore here; with PEN, pull it too
-pen push        # push local files (creates a Pen if none is connected yet)
-pen pull        # download the Pen's files (never deletes local files)
-pen pull <PEN>  # connect this directory to PEN, then pull it
-pen sync        # push, then watch and push on every change
-pen info        # Pen details, build status, version count, local changes waiting to push
-pen open [editor|preview|live]  # open the Pen in the browser (default: editor)
-pen completion zsh              # shell completion (bash, zsh, fish, powershell)
-pen --version
+```console
+$ pen push
+  + index.html
+  + style.css
+  + script.js
+created "my-demo"
+  editor   https://codepen.io/editor/you/pen/01J…
+  preview  https://8f3c….codepen.dev/
+
+$ pen sync
+watching .
+12:03:41  ~ style.css
+12:03:42  pushed 1 file to "my-demo"
 ```
-
-`--force` skips the version check and overwrites edits made in the CodePen editor. With `pull <PEN>` and `init <PEN>` it allows switching away from an already connected Pen, and replacing local files that differ from the Pen (without it, connecting refuses to replace them).
 
 ## Install
 
-```sh
-just install   # go install into $GOBIN (needs Go ≥ 1.26)
-```
+Download the archive for your system from the [latest release](https://github.com/nocksock/codepen-cli/releases/latest), unpack it, and put `pen` on your `PATH`. Builds exist for Linux, macOS and Windows, on amd64 and arm64.
 
-Every tagged release carries archives for linux, macOS and Windows, amd64 and arm64. Inside this repo, `just build` puts `pen` in `bin/`, which `.envrc` adds to `PATH`.
-
-## Setup
-
-In any folder, run `pen init`. It never overwrites anything: **`.gitignore`** gains `.env` and `.env.local` if they're missing. **`.env` and `.envrc`** are yours to create and manage; `pen` never writes them.
-
-`pen` reads `CODEPEN_API_KEY` from the shell environment, then `.env.local`, then `.env`. Use whichever fits: export it, let direnv or a secret manager inject it, or put it in `.env`.
+With Go 1.26 or newer you can install it from source instead:
 
 ```sh
-CODEPEN_API_KEY=cp_user_…
+go install github.com/nocksock/codepen-cli/cmd/pen@latest
 ```
 
-`pen` does not resolve secret-manager references. If yours holds `op://…`, run the command through your tool, e.g. `op run -- pen push`.
+## Quick start
 
-`.env.local` holds local settings:
+1. **Get an API key.** Create one in your [CodePen settings](https://codepen.io/settings/api) <!-- TODO: confirm URL -->. It starts with `cp_user_`.
+2. **Hand it to `pen`.** Export it in your shell, or put it in a `.env` file in the folder you run `pen` from:
+
+   ```sh
+   CODEPEN_API_KEY=cp_user_…
+   ```
+
+   `pen` never uploads `.env` files, but it doesn't touch your `.gitignore` either, so keep `.env` out of git yourself.
+
+3. **Push a folder.** In the folder you want on CodePen, run `pen push`. The first push creates a Pen named after the folder and connects the folder to it. An empty folder gets CodePen's starter files instead.
+4. **Keep it in sync.** Run `pen sync` while you work. It pushes every time you save. Stop it with Ctrl-C.
+
+`pen open` shows the Pen in your browser. `pen info` tells you where things stand.
+
+## Work on a Pen you already have
 
 ```sh
-CODEPEN_DIR=pen   # what to mirror (default: .)
+pen pull https://codepen.io/editor/you/pen/01J…
 ```
 
-The connected Pen is kept as `"id"` in `.codepen.config.json` at the top of the mirrored directory, so you can commit it and a clone knows its Pen. The file is local only: it is never pushed, and a pull never writes it, not even when a Pen carries one. A `CODEPEN_ID` environment variable overrides it.
+This connects the folder to the Pen and downloads its files. Any id or URL that contains one works: the editor URL, `/pen/`, `/full/`, `/details/` and embed URLs, and Classic ids like `PwWmgeN`.
 
-## Behaviour
+The API only reaches your own Pens. To work on someone else's, fork it on codepen.io first. Classic Pens can be pulled, but not pushed.
 
-- **pull `<PEN>`** takes a Pen id (`01a1…-…` or Classic `PwWmgeN`) or any URL that contains one: the editor URL, a public `/pen/`, `/full/`, `/details/` or embed URL, or a `?template=` URL. It stores the id in `.codepen.config.json`, so later commands use it. The API only reaches your own Pens, so fork other people's on codepen.io first. Classic Pens can be pulled but not pushed.
-- **pull** without `<PEN>` and without a connected Pen fails. Files are written atomically, and a remote path that would land outside the directory is refused.
-- **push** mirrors local → remote: changed and new files are uploaded, and remote files missing locally are deleted. It refuses to push an empty directory.
-- After **push**, **pull**, **sync** and **init `<PEN>`**, the Pen's editor and preview URLs are printed, even when nothing changed.
-- After every push, compiler patches (e.g. `.codepen/pen.config.json`, `tsconfig.json`) are written back locally.
-- Empty files are skipped because the API rejects empty content.
-- Ignored, in any letter case: `.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store`, `.codepen.config.json`. Ignored paths are never pushed, never written by pull (so a Pen can't plant `.git/hooks` or replace `.env`), and never deleted remotely.
-- In `sync`, a remote edit made while you're watching causes a 409. Run `pen pull` (or use `--force`). Besides file events, `sync` rescans every 5 s, so changes the OS failed to report are still pushed.
-- Reads are retried on network errors, 429 and 5xx; writes only on 429, since a failed write may already have been applied.
-- Exit codes: `0` ok, `1` error, `2` usage error, `130` interrupted (Ctrl-C).
+## Editing in both places
 
-See [API_OVERVIEW.md](API_OVERVIEW.md) for what else the API can do.
+You can change files in the CodePen editor and locally. `pen` remembers the files as they were at the last push or pull, so it can tell who changed what.
 
-## Development
+- **`pen pull`** brings in edits made on CodePen. It updates files you haven't touched locally and keeps your local edits. If a file changed on both sides, it changes nothing and lists the files. `pen pull --force` takes CodePen's version of them.
+- **`pen push`** refuses when the Pen changed on CodePen since your last sync, so it can't overwrite edits it hasn't seen. Run `pen pull`, then push again. `pen push --force` overwrites the Pen anyway.
+- **`pen sync`** stops pushing on such a change, too. Stop it, run `pen pull`, then start `pen sync` again.
+
+Pull never deletes local files, and push only deletes files on CodePen that you deleted locally.
+
+## Fork
 
 ```sh
-just test       # go test -race -shuffle=on ./...
-just lint       # golangci-lint
-just vuln       # govulncheck
-just snapshot   # cross-compile release archives into dist/ without publishing
+pen fork                      # copy the Pen, with your unpushed edits, and switch this folder to the copy
+pen fork remote               # copy the Pen as it is on CodePen
+pen fork <PEN>                # copy another of your Pens into this folder
+pen fork --into ../variant    # put the copy in a new folder; this one stays on the original
+pen fork --detach             # a fresh Pen with the same files, without CodePen's link to the original
 ```
 
-CI runs these checks, plus `golangci-lint fmt --diff` and `goreleaser check`, on every push to `main` and every pull request. Pushing a `v*` tag runs them again and publishes a release only if they pass.
+Forks count toward CodePen's daily limit on new Pens (3 a day on the free plan).
 
-The CLI tests in `internal/cli` run `cli.Run` in-process against an in-memory fake CodePen API (`internal/codepen/codepentest`), in temp directories, with a recording stand-in for the browser. They need no network or API key. `CODEPEN_API_URL` and `CODEPEN_POLL_MS` point `pen` at another API and speed up build polling.
+## Commands
+
+| Command | What it does |
+|---|---|
+| `pen push` | Upload local changes. Creates a Pen if the folder has none. |
+| `pen pull [PEN]` | Download changes from CodePen. With `PEN`, connect the folder to that Pen first. |
+| `pen sync` | Push, then push again on every change until you stop it. |
+| `pen fork [SOURCE]` | Copy a Pen and connect a folder to the copy. |
+| `pen info` | Show the Pen's details, build status and local changes waiting to push. |
+| `pen open [editor\|preview\|live]` | Open the Pen in your browser (default: editor). |
+| `pen completion SHELL` | Print a completion script for bash, zsh, fish or powershell. |
+
+`pen help <command>` or `pen <command> --help` shows a command's options and examples.
+
+## Output
+
+Each changed file gets a line: `+` new, `~` changed, `-` deleted. A summary line follows, such as `pushed 3 files to "my-demo"` or `already up to date`. The editor and preview URLs are printed when a folder connects to a Pen; after that, `pen info` and `pen open` have them.
+
+- `-q`, `--quiet` prints errors only.
+- `pen push --dry-run` lists what would change, without changing anything.
+- `pen info --json` prints the details as JSON.
+
+When CodePen's build reports errors, `pen` lists them. Your files are still saved on CodePen, but the command exits with 1.
+
+| Exit code | Meaning |
+|---|---|
+| `0` | Done. |
+| `1` | Something failed, including a build with errors. |
+| `2` | The command was used wrongly. The message says how to use it. |
+| `130` | Interrupted with Ctrl-C. |
+
+## Configuration
+
+`pen` reads these settings from the shell environment first, then `.env.local`, then `.env`, both in the folder you run it from.
+
+| Variable | Meaning |
+|---|---|
+| `CODEPEN_API_KEY` | Your API key. Required. |
+| `CODEPEN_DIR` | The folder to mirror, if not the current one. |
+| `CODEPEN_ID` | The Pen to use, as an id or URL. Overrides the connected one. |
+
+`pen` doesn't resolve secret-manager references. If your key lives in one, run `pen` through it, e.g. `op run -- pen push`.
+
+The connected Pen is stored as `"id"` in `.codepen.config.json`, at the top of the mirrored folder. Commit it, and every clone knows its Pen. It's never uploaded, and a pull never overwrites it.
+
+What `pen` remembers about the last sync lives outside your project, in `$XDG_STATE_HOME/pen` (usually `~/.local/state/pen`). Moving the folder makes `pen` forget it. The next pull then changes no local file that differs from CodePen unless you pass `--force`.
+
+## What is never synced
+
+`.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store` and `.codepen.config.json`, in any letter case. These are never uploaded, never written by a pull, and never deleted from CodePen. So a Pen can't plant a git hook or replace your secrets.
+
+Empty files aren't uploaded, since CodePen rejects them. Emptying a file locally deletes it from CodePen on the next push.
+
+After a push, CodePen sometimes adjusts files: it adds a `tsconfig.json` or rewrites `.codepen/pen.config.json`, for example. `pen` writes those changes back to your folder.
+
+## More
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): building, testing and releasing.
+- [API_OVERVIEW.md](API_OVERVIEW.md): what else the CodePen API can do.
