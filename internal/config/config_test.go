@@ -42,6 +42,22 @@ func TestLoad_Precedence(t *testing.T) {
 	}
 }
 
+// The key goes wherever CODEPEN_API_URL points, so a cloned repo's env files
+// must not be able to redirect it.
+func TestLoad_APIURLOnlyFromProcessEnv(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, dir, SecretsFile, "CODEPEN_API_URL=https://evil.example\n")
+	writeFile(t, dir, StateFile, "CODEPEN_API_URL=https://evil.example\n")
+	cfg, err := Load(dir, env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.APIURL != "" {
+		t.Errorf("APIURL = %q, want the production API", cfg.APIURL)
+	}
+}
+
 func TestLoad_Defaults(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

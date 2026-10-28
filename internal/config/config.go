@@ -27,12 +27,14 @@ type Config struct {
 	APIKey       string        // CODEPEN_API_KEY
 	Dir          string        // CODEPEN_DIR as an absolute path (default: the working directory)
 	PenID        string        // CODEPEN_ID, else the id in Dir/.codepen.config.json; "" when none
-	APIURL       string        // CODEPEN_API_URL; "" for the production API
+	APIURL       string        // CODEPEN_API_URL, from the environment only; "" for the production API
 	PollInterval time.Duration // CODEPEN_POLL_MS; 0 for the default
 }
 
 // Load reads the settings for the working directory dir (absolute). Values come
 // from getenv first, then StateFile, then SecretsFile; empty values count as unset.
+// CODEPEN_API_URL comes from getenv only: the key is sent wherever it points, so
+// env files checked into a repo must not choose it.
 func Load(dir string, getenv func(string) (string, bool)) (Config, error) {
 	lookup, err := sources(dir, getenv)
 	if err != nil {
@@ -41,7 +43,7 @@ func Load(dir string, getenv func(string) (string, bool)) (Config, error) {
 	cfg := Config{
 		APIKey: lookup("CODEPEN_API_KEY"),
 		Dir:    resolve(dir, lookup("CODEPEN_DIR")),
-		APIURL: lookup("CODEPEN_API_URL"),
+		APIURL: fromEnv(getenv, "CODEPEN_API_URL"),
 	}
 	if cfg.PenID, err = penID(lookup("CODEPEN_ID")); err != nil {
 		return Config{}, err
@@ -86,6 +88,11 @@ func sources(dir string, getenv func(string) (string, bool)) (func(string) strin
 		}
 		return secrets[name]
 	}, nil
+}
+
+func fromEnv(getenv func(string) (string, bool), name string) string {
+	value, _ := getenv(name)
+	return value
 }
 
 func resolve(dir, path string) string {
