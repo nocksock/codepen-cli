@@ -134,6 +134,48 @@ func writeFile(root, path string, r io.Reader, isIgnoredRefused bool) error {
 	return nil
 }
 
+// CheckPaths reports the first remote path Write would refuse, and any two
+// paths whose files or folders a case-insensitive filesystem (macOS, Windows)
+// would make one. Checking a whole Pen first means a pull fails before writing
+// anything.
+func CheckPaths(paths []string) error {
+	seen := map[string]string{} // spelling of each file and folder, by folded name
+	for _, p := range paths {
+		if _, err := cleanName(p, true); err != nil {
+			return fmt.Errorf("refusing to write %q: not a file path inside the directory", p)
+		}
+		for _, name := range withFolders(p) {
+			folded := foldPath(name)
+			if other, ok := seen[folded]; ok && other != name {
+				return fmt.Errorf("refusing to write %q and %q: they would be the same file on macOS and Windows; rename one", other, name)
+			}
+			seen[folded] = name
+		}
+	}
+	return nil
+}
+
+// withFolders lists the folders leading to path, then path: "/a/b.js" gives
+// "/a" and "/a/b.js".
+func withFolders(path string) []string {
+	var names []string
+	for i := 1; i < len(path); i++ {
+		if path[i] == '/' {
+			names = append(names, path[:i])
+		}
+	}
+	return append(names, path)
+}
+
+// foldPath applies foldName to every part of path.
+func foldPath(path string) string {
+	parts := strings.Split(path, "/")
+	for i, part := range parts {
+		parts[i] = foldName(part)
+	}
+	return strings.Join(parts, "/")
+}
+
 var errBadPath = errors.New("bad path")
 
 // cleanName turns a remote path into a local file name below the root, or

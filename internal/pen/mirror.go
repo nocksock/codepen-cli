@@ -249,8 +249,14 @@ func (m *Mirror) recordID() error {
 	return nil
 }
 
-// writeBack writes every file in stale(local).
+// writeBack writes every file in stale(local), after checking that the
+// directory can hold all of the Pen's files.
 func (m *Mirror) writeBack(ctx context.Context, local tree.Snapshot) error {
+	paths := slices.DeleteFunc(slices.Collect(maps.Keys(m.remote)), tree.IsIgnored)
+	slices.Sort(paths)
+	if err := tree.CheckPaths(paths); err != nil {
+		return err
+	}
 	for _, p := range m.stale(local) {
 		if err := m.download(ctx, m.remote[p]); err != nil {
 			return err
