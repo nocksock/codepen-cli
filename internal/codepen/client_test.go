@@ -496,3 +496,38 @@ func TestClient_Settle_KeepsLastBuildOnError(t *testing.T) {
 		t.Errorf("Settle() = %+v, %v; want the last build and an error", build, err)
 	}
 }
+
+// A file host that stops sending mid-body must not hang a pull.
+func TestClient_Download_FailsWhenStalled(t *testing.T) {
+	t.Parallel()
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("start"))
+		w.(http.Flusher).Flush()
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Cleanup(func() { close(release) })
+	api := codepen.New("k", codepen.WithDownloadIdle(50*time.Millisecond))
+	body, err := api.Download(t.Context(), srv.URL+"/raw/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer body.Close()
+	done := make(chan error, 1)
+	go func() {
+		_, err := io.ReadAll(body)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "stalled") {
+			t.Errorf("ReadAll() error = %v, want a stalled download", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("a stalled download hung")
+	}
+}
