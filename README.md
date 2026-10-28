@@ -83,6 +83,7 @@ For now every fork needs `--detach`: the copy is a new Pen with the same files, 
 | `pen pull [PEN]` | Download changes from CodePen. With `PEN`, connect the folder to that Pen first. |
 | `pen sync` | Push, then push again on every change until you stop it with Ctrl-C. |
 | `pen fork [SOURCE] --detach` | Copy a Pen and connect a folder to the copy. |
+| `pen config` | Show or change which files sync. |
 | `pen info` | Show the Pen's details, build status and local changes waiting to push. |
 | `pen open [editor\|preview\|live]` | Open the Pen in your browser (default: editor). |
 | `pen completion SHELL` | Print a completion script for bash, zsh, fish or powershell. |
@@ -118,13 +119,55 @@ When CodePen's build fails, `pen` lists the errors on stderr. Your files are sti
 
 `pen` doesn't resolve secret-manager references. If your key lives in one, run `pen` through it, e.g. `op run -- pen push`.
 
-The connected Pen is stored as `"id"` in `.codepen.config.json`, at the top of the mirrored folder. Commit it, and every clone knows its Pen. It's never uploaded, and a pull never overwrites it.
+The connected Pen is stored as `"id"` in `.codepen.config.json`, at the top of the mirrored folder, next to the `include` and `exclude` lists (see [Choosing what syncs](#choosing-what-syncs)). Commit it, and every clone knows its Pen and what syncs. It's never uploaded, and a pull never overwrites it.
 
 What `pen` remembers about the last sync lives outside your project, in `$XDG_STATE_HOME/pen` (usually `~/.local/state/pen`). Moving the folder makes `pen` forget it. The next pull then changes no local file that differs from CodePen unless you pass `--force`.
 
-## What is never synced
+## Choosing what syncs
 
-`.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store` and `.codepen.config.json`, in any letter case. These are never uploaded, never written by a pull, and never deleted from CodePen. So a Pen can't plant a git hook or replace your secrets.
+By default every file in the folder syncs. Two lists in `.codepen.config.json` narrow that down:
+
+```json
+{
+  "id": "01J…",
+  "include": ["src/", "index.html"],
+  "exclude": ["*.map", "src/drafts/"]
+}
+```
+
+- **`include`**: when set, only matching files sync.
+- **`exclude`**: matching files don't sync, even if `include` matches them.
+
+Patterns work like `.gitignore`:
+
+- `*` matches within a name, and `**` matches across folders.
+- A trailing `/` matches folders only, along with everything in them.
+- A pattern with a `/` at the start or in the middle is relative to the top of the folder. Otherwise it matches at any depth, so `*.map` covers `a.map` and `src/b.map` alike.
+- Letter case doesn't matter.
+
+Files left out this way are left alone on both sides. Push neither uploads them nor deletes them from CodePen, and pull doesn't write them. So excluding `dist/` keeps the Pen's `dist/` as it is.
+
+Edit the lists with `pen config`, or by hand:
+
+```sh
+pen config                          # show the settings
+pen config get exclude
+pen config set include src/ index.html   # replace the list
+pen config add exclude '*.map'      # add patterns
+pen config remove exclude '*.map'   # remove them
+pen config set exclude              # clear the list
+```
+
+For a single push or sync, `--include` and `--exclude` add patterns on top of the config. Both can be repeated:
+
+```sh
+pen push --exclude 'drafts/'
+pen sync --include src/ --include index.html
+```
+
+### Never synced
+
+`.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store` and `.codepen.config.json`, in any letter case, never sync, whatever `include` says. These are never uploaded, never written by a pull, and never deleted from CodePen. So a Pen can't plant a git hook or replace your secrets.
 
 Empty files aren't uploaded, since CodePen rejects them. Emptying a file locally deletes it from CodePen on the next push.
 
