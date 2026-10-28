@@ -23,6 +23,7 @@ type Status struct {
 	Files    []codepen.File
 	Versions int
 	Changes  codepen.ChangeSet // what a push would send
+	LocalErr error             // why the directory couldn't be compared; nil when it was
 }
 
 // Gather fetches the Pen, its files and version count, and compares the files
@@ -45,18 +46,18 @@ func Gather(ctx context.Context, api *codepen.Client, id, root string) (Status, 
 	if err := g.Wait(); err != nil {
 		return Status{}, err
 	}
-	s.Changes = diff.Between(localFiles(root), diff.ByPath(s.Files))
+	s.Changes, s.LocalErr = compare(root, s.Files)
 	return s, nil
 }
 
-// localFiles snapshots root; an unreadable directory counts as empty, so info
-// still shows the Pen.
-func localFiles(root string) tree.Snapshot {
+// compare returns what a push from root would send. Its error goes into the
+// Status rather than failing Gather, so info still shows the Pen.
+func compare(root string, files []codepen.File) (codepen.ChangeSet, error) {
 	local, err := tree.Read(root)
 	if err != nil {
-		return tree.Snapshot{}
+		return codepen.ChangeSet{}, err
 	}
-	return local
+	return diff.Between(local, diff.ByPath(files)), nil
 }
 
 // Render formats s as aligned "label  value" lines, with times relative to now.
@@ -72,7 +73,7 @@ func Render(s Status, now time.Time) string {
 		{Label: "versions", Value: versions(s.Versions, p.SavedVersion, now)},
 		{Label: "build", Value: build(p.SavedVersion)},
 		{Label: "files", Value: size(s.Files)},
-		{Label: "local", Value: local(s.Changes)},
+		{Label: "local", Value: local(s.Changes, s.LocalErr)},
 		{Label: "deployed", Value: deployed(p.Deployment)},
 		{Label: "popularity", Value: strconv.FormatFloat(p.Popularity, 'f', -1, 64)},
 		{Label: "editor", Value: p.URLs.Editor},
@@ -119,7 +120,10 @@ func size(files []codepen.File) string {
 	return out
 }
 
-func local(changes codepen.ChangeSet) string {
+func local(changes codepen.ChangeSet, err error) string {
+	if err != nil {
+		return "can't compare: " + err.Error()
+	}
 	writes := len(changes.Writes) + len(changes.Uploads)
 	deletes := len(changes.Deletes)
 	if writes == 0 && deletes == 0 {
