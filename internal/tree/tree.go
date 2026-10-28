@@ -238,6 +238,10 @@ func writeTemp(dir *os.Root, name string, perm fs.FileMode, isKept bool, r io.Re
 	if _, err := io.Copy(f, r); err != nil {
 		return errors.Join(err, f.Close(), dir.Remove(name))
 	}
+	// Synced before the rename, so a crash can't leave an empty file in place.
+	if err := f.Sync(); err != nil {
+		return errors.Join(err, f.Close(), dir.Remove(name))
+	}
 	if err := f.Close(); err != nil {
 		return errors.Join(err, dir.Remove(name))
 	}
