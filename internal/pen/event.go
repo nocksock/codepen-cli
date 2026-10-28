@@ -39,6 +39,11 @@ type Connected struct {
 	URLs      codepen.URLs
 }
 
+// Forked is a copy, titled Title, of a Pen titled From, unlinked from it.
+type Forked struct {
+	From, Title, ID string
+}
+
 // Pushed ends a push that sent Files changed files.
 type Pushed struct {
 	Title string
@@ -72,3 +77,4 @@ func (Pulled) event()      {}
 func (UpToDate) event()    {}
 func (WouldPush) event()   {}
 func (WouldCreate) event() {}
+func (Forked) event()      {}

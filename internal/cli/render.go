@@ -48,6 +48,8 @@ func render(e pen.Event) string {
 	case pen.Connected:
 		fmt.Fprintf(&b, "connected to \"%s\" (%s)\n", human.Clean(e.Title), human.Clean(e.ID))
 		b.WriteString(renderURLs(e.URLs))
+	case pen.Forked:
+		fmt.Fprintf(&b, "forked \"%s\" → \"%s\" (%s)\n", human.Clean(e.From), human.Clean(e.Title), human.Clean(e.ID))
 	case pen.Pushed:
 		fmt.Fprintf(&b, "pushed %s to \"%s\"\n", human.Plural(e.Files, "file"), human.Clean(e.Title))
 	case pen.Pulled:
