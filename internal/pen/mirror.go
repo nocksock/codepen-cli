@@ -67,14 +67,15 @@ func (m *Mirror) URLs() codepen.URLs { return m.urls }
 
 // PushOptions change how Push behaves.
 type PushOptions struct {
-	Force bool // skip the version check and overwrite remote edits
+	Force  bool // skip the version check and overwrite remote edits
+	DryRun bool // report what would change, change nothing
 }
 
 // Push makes the Pen match the directory: changed and new files go up, files
 // missing locally are deleted remotely. Without a connected Pen it creates one.
 func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 	if m.id == "" {
-		return m.create(ctx)
+		return m.create(ctx, opts.DryRun)
 	}
 	if !m.isTracking {
 		if err := m.fetch(ctx); err != nil {
@@ -94,6 +95,10 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 		return nil
 	}
 	m.cfg.Reporter.Report(Planned{Changes: changes, New: m.added(changes)})
+	if opts.DryRun {
+		m.cfg.Reporter.Report(WouldPush{Title: m.title, Files: changes.Len()})
+		return nil
+	}
 	expected := m.head
 	if opts.Force {
 		expected = ""
@@ -114,7 +119,7 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 	if err := m.writeBack(ctx, local); err != nil {
 		return err
 	}
-	m.cfg.Reporter.Report(Pushed{Title: m.title, Files: len(changes.Writes) + len(changes.Uploads) + len(changes.Deletes)})
+	m.cfg.Reporter.Report(Pushed{Title: m.title, Files: changes.Len()})
 	return m.buildResult()
 }
 
@@ -143,7 +148,7 @@ func (m *Mirror) buildResult() error {
 }
 
 // create makes a Pen from the directory; an empty one gets CodePen's starter files.
-func (m *Mirror) create(ctx context.Context) error {
+func (m *Mirror) create(ctx context.Context, isDryRun bool) error {
 	local, err := tree.Read(m.cfg.Root)
 	if err != nil {
 		return err
@@ -151,6 +156,10 @@ func (m *Mirror) create(ctx context.Context) error {
 	changes := diff.Between(local, nil)
 	if !changes.IsEmpty() {
 		m.cfg.Reporter.Report(Planned{Changes: changes, New: m.added(changes)})
+	}
+	if isDryRun {
+		m.cfg.Reporter.Report(WouldCreate{Files: changes.Len()})
+		return nil
 	}
 	created, err := m.cfg.API.CreatePen(ctx, codepen.NewPen{
 		Title:   filepath.Base(m.cfg.Root),

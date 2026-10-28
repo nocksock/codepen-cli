@@ -52,6 +52,14 @@ func render(e pen.Event) string {
 		fmt.Fprintf(&b, "pushed %s to \"%s\"\n", human.Plural(e.Files, "file"), human.Clean(e.Title))
 	case pen.Pulled:
 		fmt.Fprintf(&b, "pulled %s\n", human.Plural(e.Files, "file"))
+	case pen.WouldPush:
+		fmt.Fprintf(&b, "would push %s to \"%s\"\n", human.Plural(e.Files, "file"), human.Clean(e.Title))
+	case pen.WouldCreate:
+		if e.Files == 0 {
+			b.WriteString("would create a Pen from CodePen's starter files\n")
+		} else {
+			fmt.Fprintf(&b, "would create a Pen with %s\n", human.Plural(e.Files, "file"))
+		}
 	case pen.UpToDate:
 		b.WriteString("already up to date\n")
 	}
