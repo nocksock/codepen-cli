@@ -4,17 +4,18 @@ Edit a CodePen in your own editor. `pen` mirrors a local folder to a [CodePen 2.
 
 ```console
 $ pen push
-  + index.html
-  + style.css
-  + script.js
+  + /index.html
+  + /style.css
+  + /script.js
 created "my-demo"
   editor   https://codepen.io/editor/you/pen/01J…
   preview  https://8f3c….codepen.dev/
 
 $ pen sync
+already up to date
 watching .
-12:03:41  ~ style.css
-12:03:42  pushed 1 file to "my-demo"
+12:03:41   ~ /style.css
+12:03:42 pushed 1 file to "my-demo"
 ```
 
 ## Install
@@ -81,7 +82,7 @@ Forks count toward CodePen's daily limit on new Pens (3 a day on the free plan).
 |---|---|
 | `pen push` | Upload local changes. Creates a Pen if the folder has none. |
 | `pen pull [PEN]` | Download changes from CodePen. With `PEN`, connect the folder to that Pen first. |
-| `pen sync` | Push, then push again on every change until you stop it. |
+| `pen sync` | Push, then push again on every change until you stop it with Ctrl-C. |
 | `pen fork [SOURCE]` | Copy a Pen and connect a folder to the copy. |
 | `pen info` | Show the Pen's details, build status and local changes waiting to push. |
 | `pen open [editor\|preview\|live]` | Open the Pen in your browser (default: editor). |
@@ -97,13 +98,13 @@ Each changed file gets a line: `+` new, `~` changed, `-` deleted. A summary line
 - `pen push --dry-run` lists what would change, without changing anything.
 - `pen info --json` prints the details as JSON.
 
-When CodePen's build reports errors, `pen` lists them. Your files are still saved on CodePen, but the command exits with 1.
+When CodePen's build fails, `pen` lists the errors on stderr. Your files are still saved on CodePen, but the command exits with 1. `pen sync` reports the failure and keeps watching.
 
 | Exit code | Meaning |
 |---|---|
 | `0` | Done. |
 | `1` | Something failed, including a build with errors. |
-| `2` | The command was used wrongly. The message says how to use it. |
+| `2` | The command was used wrongly. The message shows how to use it. |
 | `130` | Interrupted with Ctrl-C. |
 
 ## Configuration
