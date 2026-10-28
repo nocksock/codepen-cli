@@ -35,6 +35,8 @@ func render(e pen.Event) string {
 		renderBuild(&b, e.Build)
 	case pen.Downloaded:
 		fmt.Fprintf(&b, "  ↓ %s\n", human.Clean(e.Path))
+	case pen.Kept:
+		fmt.Fprintf(&b, "  kept %s (local edit; push uploads it)\n", human.Clean(e.Path))
 	case pen.Created:
 		b.WriteString("created\n")
 	case pen.Connected:

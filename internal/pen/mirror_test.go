@@ -15,6 +15,7 @@ import (
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/codepen/codepentest"
 	"github.com/nocksock/codepen-cli/internal/penconfig"
+	"github.com/nocksock/codepen-cli/internal/penstate"
 )
 
 type recorder struct {
@@ -32,7 +33,7 @@ func open(t *testing.T, api *codepentest.Server, root, id string) (*Mirror, *rec
 	t.Helper()
 	rec := &recorder{}
 	client := codepen.New(codepentest.Key, codepen.WithBaseURL(api.URL()), codepen.WithPollInterval(time.Millisecond))
-	return Open(Config{API: client, Root: root, ID: id, Reporter: rec}), rec
+	return Open(Config{API: client, Root: root, ID: id, Reporter: rec, State: penstate.Store{Dir: t.TempDir()}}), rec
 }
 
 // localID is the Pen id stored in root's .codepen.config.json.
