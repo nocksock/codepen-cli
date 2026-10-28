@@ -85,3 +85,14 @@ func TestBetween_KeepsIgnoredRemoteFiles(t *testing.T) {
 		t.Errorf("Deletes = %q, want %q", got.Deletes, want)
 	}
 }
+
+// The API refuses empty content, so emptying a file deletes it remotely.
+// Skipping it would leave the old content up, and the next pull would bring it back.
+func TestBetween_DeletesEmptiedFiles(t *testing.T) {
+	t.Parallel()
+	remote := ByPath([]codepen.File{text("/a.css", "body{}")})
+	got := Between(tree.Snapshot{"/a.css": {}, "/b.js": []byte("1")}, remote)
+	if want := []string{"/a.css"}; !reflect.DeepEqual(got.Deletes, want) {
+		t.Errorf("Deletes = %q, want %q", got.Deletes, want)
+	}
+}
