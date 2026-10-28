@@ -26,7 +26,7 @@ env (.env, .env.local):
   CODEPEN_ID        Pen id; overrides the one kept in .codepen.config.json
   CODEPEN_DIR       directory to mirror (default: .)
 
---force    init/pull: switch to PEN although another Pen is connected
+--force    init/pull: switch to PEN although another Pen is connected, and replace differing local files
            push/sync: skip the version check and overwrite remote edits
 --version  print the version`
 

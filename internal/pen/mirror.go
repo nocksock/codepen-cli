@@ -130,10 +130,11 @@ func (m *Mirror) create(ctx context.Context) error {
 // PullOptions change how Pull behaves.
 type PullOptions struct {
 	Ref   string // Pen id or URL to connect to; "" for the connected Pen
-	Force bool   // allow switching away from another connected Pen
+	Force bool   // allow switching away from another connected Pen, and replacing local files when connecting
 }
 
 // Pull writes the Pen's files that differ locally. It never deletes local files.
+// Connecting to another Pen refuses to replace local files, unless forced.
 func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 	id, err := m.target(opts.Ref)
 	if err != nil {
@@ -152,6 +153,10 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 	if err != nil {
 		*m = before
 		return err
+	}
+	if replaced := m.replaced(local); before.id != id && len(replaced) > 0 && !opts.Force {
+		*m = before
+		return fmt.Errorf("connecting to %s would replace %s here; pass --force to replace them", id, strings.Join(replaced, ", "))
 	}
 	if err := m.recordID(); err != nil {
 		*m = before
@@ -244,23 +249,39 @@ func (m *Mirror) recordID() error {
 	return nil
 }
 
-// writeBack writes every tracked remote file that local lacks or differs
-// from. Ignored paths (.git, .env*, ...) are never written.
+// writeBack writes every file in stale(local).
 func (m *Mirror) writeBack(ctx context.Context, local tree.Snapshot) error {
-	for _, p := range slices.Sorted(maps.Keys(m.remote)) {
-		if tree.IsIgnored(p) {
-			continue
-		}
-		file := m.remote[p]
-		if data, ok := local[p]; ok && diff.IsSame(data, file) {
-			continue
-		}
-		if err := m.download(ctx, file); err != nil {
+	for _, p := range m.stale(local) {
+		if err := m.download(ctx, m.remote[p]); err != nil {
 			return err
 		}
 		m.cfg.Reporter.Report(Downloaded{Path: p})
 	}
 	return nil
+}
+
+// stale lists the tracked remote files that local lacks or differs from, in
+// order. Ignored paths (.git, .env*, ...) are never listed, so never written.
+func (m *Mirror) stale(local tree.Snapshot) []string {
+	var paths []string
+	for _, p := range slices.Sorted(maps.Keys(m.remote)) {
+		if tree.IsIgnored(p) {
+			continue
+		}
+		if data, ok := local[p]; ok && diff.IsSame(data, m.remote[p]) {
+			continue
+		}
+		paths = append(paths, p)
+	}
+	return paths
+}
+
+// replaced lists the local files a writeBack would overwrite.
+func (m *Mirror) replaced(local tree.Snapshot) []string {
+	return slices.DeleteFunc(m.stale(local), func(p string) bool {
+		_, exists := local[p]
+		return !exists
+	})
 }
 
 func (m *Mirror) download(ctx context.Context, file codepen.File) error {

@@ -388,3 +388,32 @@ func TestMirror_Push_KeepsRefusingAfterConflict(t *testing.T) {
 		t.Errorf("remote a.js = %q, want theirs", got)
 	}
 }
+
+// Connecting a directory to a Pen must not replace files it already has.
+func TestMirror_Pull_ConnectingKeepsDifferingLocalFiles(t *testing.T) {
+	t.Parallel()
+	api := codepentest.Start(t)
+	id := api.Seed(codepentest.Seed{Files: map[string]string{"index.html": "theirs", "same.js": "1", "new.js": "2"}})
+	root := t.TempDir()
+	writeFile(t, root, "index.html", "mine")
+	writeFile(t, root, "same.js", "1")
+	m, _ := open(t, api, root, "")
+
+	err := m.Pull(t.Context(), PullOptions{Ref: id})
+	if err == nil || !strings.Contains(err.Error(), "/index.html") || !strings.Contains(err.Error(), "pass --force") {
+		t.Fatalf("Pull() error = %v, want one naming /index.html and --force", err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(root, "index.html")); string(data) != "mine" {
+		t.Errorf("index.html = %q, want mine", data)
+	}
+	if m.ID() != "" || localID(t, root) != "" {
+		t.Errorf("connected to %q (config %q) after a refused pull", m.ID(), localID(t, root))
+	}
+
+	if err := m.Pull(t.Context(), PullOptions{Ref: id, Force: true}); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(root, "index.html")); string(data) != "theirs" {
+		t.Errorf("index.html = %q after --force, want theirs", data)
+	}
+}
