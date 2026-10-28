@@ -104,7 +104,7 @@ func TestRun_MissingAPIKey(t *testing.T) {
 	w := newWorkspace(t, nil)
 	delete(w.vars, "CODEPEN_API_KEY")
 	r := w.run("push")
-	if r.code != 1 || !strings.Contains(r.stderr, "CODEPEN_API_KEY is not set: create a key in your CodePen settings, then export it or put it in .env") {
+	if r.code != 1 || !strings.Contains(r.stderr, "CODEPEN_API_KEY is not set: create a key at https://codepen.io/settings/api, then export it or put it in .env") {
 		t.Errorf("code %d, stderr %q", r.code, r.stderr)
 	}
 }
