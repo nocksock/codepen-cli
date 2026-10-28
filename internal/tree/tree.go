@@ -199,7 +199,8 @@ func replace(dir *os.Root, name string, r io.Reader) error {
 		return err
 	}
 	tmp := name + tmpSuffix
-	if err := writeTemp(dir, tmp, existingPerm(dir, name), r); err != nil {
+	perm, isKept := existingPerm(dir, name)
+	if err := writeTemp(dir, tmp, perm, isKept, r); err != nil {
 		return err
 	}
 	if err := dir.Rename(tmp, name); err != nil {
@@ -208,25 +209,31 @@ func replace(dir *os.Root, name string, r io.Reader) error {
 	return nil
 }
 
-// existingPerm returns the permission bits of the regular file at name, or
-// 0o644 if there is none.
-func existingPerm(dir *os.Root, name string) fs.FileMode {
+// existingPerm returns the permission bits of the regular file at name and
+// true, or 0o644 and false if there is none.
+func existingPerm(dir *os.Root, name string) (fs.FileMode, bool) {
 	info, err := dir.Lstat(name)
 	if err != nil || !info.Mode().IsRegular() {
-		return 0o644
+		return 0o644, false
 	}
-	return info.Mode().Perm()
+	return info.Mode().Perm(), true
 }
 
 // writeTemp creates name exclusively, after removing any leftover, so a
-// planted file or symlink there cannot redirect the write.
-func writeTemp(dir *os.Root, name string, perm fs.FileMode, r io.Reader) error {
+// planted file or symlink there cannot redirect the write. A new file's perm
+// is narrowed by the umask; a kept one is set exactly.
+func writeTemp(dir *os.Root, name string, perm fs.FileMode, isKept bool, r io.Reader) error {
 	if err := dir.Remove(name); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 	f, err := dir.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, perm)
 	if err != nil {
 		return err
+	}
+	if isKept {
+		if err := f.Chmod(perm); err != nil {
+			return errors.Join(err, f.Close(), dir.Remove(name))
+		}
 	}
 	if _, err := io.Copy(f, r); err != nil {
 		return errors.Join(err, f.Close(), dir.Remove(name))
