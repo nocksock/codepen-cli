@@ -14,7 +14,6 @@ var version string
 
 const usage = `pen — mirror a local directory to a CodePen 2.0 Pen
 
-  pen init [PEN]         add env files to .gitignore here; PEN pulls it
   pen push [--force]     push local files (creates a Pen if none is connected)
   pen pull [PEN]         download the Pen's files; PEN (id or URL) connects to it
   pen sync [--force]     push, then watch and push on every change
@@ -27,7 +26,7 @@ env (.env, .env.local):
   CODEPEN_ID        Pen id; overrides the one kept in .codepen.config.json
   CODEPEN_DIR       directory to mirror (default: .)
 
---force    init/pull: switch to PEN although another Pen is connected, and replace differing local files
+--force    pull: switch to PEN although another Pen is connected, and replace differing local files
            push/sync: skip the version check and overwrite remote edits
 --version  print the version`
 
@@ -62,7 +61,7 @@ func newRoot(a *app) *cobra.Command {
 	root.SetOut(a.env.Stdout)
 	root.SetErr(a.env.Stderr)
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err: err} })
-	root.AddCommand(newInitCmd(a), newPushCmd(a), newPullCmd(a), newSyncCmd(a), newInfoCmd(a), newOpenCmd(a))
+	root.AddCommand(newPushCmd(a), newPullCmd(a), newSyncCmd(a), newInfoCmd(a), newOpenCmd(a))
 	strictCompletion(root)
 	strictHelp(root)
 	help := root.HelpFunc()
