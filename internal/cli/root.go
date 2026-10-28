@@ -20,6 +20,7 @@ usage: pen <command> [flags]
   pen pull [PEN]        download changes from CodePen; PEN connects the folder to that Pen
   pen sync              push, then push again on every change
   pen fork [SOURCE]     copy a Pen and connect a folder to the copy
+  pen config            show or change which files sync
   pen info              show the Pen's details, build status and changes waiting to push
   pen open [TARGET]     open the editor (default), preview or live site in the browser
   pen completion SHELL  print a completion script for bash, zsh, fish or powershell
@@ -66,7 +67,7 @@ func newRoot(a *app) *cobra.Command {
 	root.SetErr(a.env.Stderr)
 	root.PersistentFlags().BoolVarP(&a.isQuiet, "quiet", "q", false, "print errors only")
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return usageError{err: err} })
-	root.AddCommand(newPushCmd(a), newPullCmd(a), newSyncCmd(a), newForkCmd(a), newInfoCmd(a), newOpenCmd(a))
+	root.AddCommand(newPushCmd(a), newPullCmd(a), newSyncCmd(a), newForkCmd(a), newConfigCmd(a), newInfoCmd(a), newOpenCmd(a))
 	strictCompletion(root)
 	strictHelp(root)
 	help := root.HelpFunc()
