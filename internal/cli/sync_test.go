@@ -11,14 +11,14 @@ func TestSync_PushesChanges(t *testing.T) {
 	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	s := w.start("sync")
 	s.waitFor(t, `watching`)
-	matches(t, s.out.String(), `^editor +https://codepen\.io/editor/`)
+	matches(t, s.out.String(), `^already up to date$`)
 
 	w.write("a.js", "2")
 	s.waitFor(t, `~ /a\.js`)
 	eventually(t, func() bool { return w.api.Files(id)["/a.js"] == "2" }, func() string { return "remote a.js = 2" })
 
 	w.write("src/new.js", "3")
-	s.waitFor(t, `~ /src/new\.js`)
+	s.waitFor(t, `\+ /src/new\.js`)
 	eventually(t, func() bool { return w.api.Files(id)["/src/new.js"] == "3" }, func() string { return "remote src/new.js = 3" })
 
 	if code := s.stop(); code != 130 {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/codepen/codepentest"
 )
 
@@ -22,10 +23,9 @@ func TestPush_CreatesPen(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("code %d: %s", r.code, r.stderr)
 	}
-	if !strings.HasPrefix(r.stdout, "created\n") {
-		t.Errorf("stdout = %q", r.stdout)
+	for _, line := range []string{`^  \+ /index\.html$`, `^  \+ /src/app\.js$`, `^created "`, `^  editor +https://codepen\.io/editor/`} {
+		matches(t, r.stdout, line)
 	}
-	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 	id := w.penID()
 	if id == "" {
 		t.Fatalf("no Pen id stored in .codepen.config.json: %q", w.read(".codepen.config.json"))
@@ -57,10 +57,9 @@ func TestPush_NothingChanged(t *testing.T) {
 	t.Parallel()
 	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	r := w.run("push")
-	if r.code != 0 || writes(w, id) != 0 {
-		t.Errorf("code %d, stdout %q, writes %d", r.code, r.stdout, writes(w, id))
+	if r.code != 0 || writes(w, id) != 0 || r.stdout != "already up to date\n" {
+		t.Errorf("code %d, stdout %q, writes %d; want only the up-to-date line", r.code, r.stdout, writes(w, id))
 	}
-	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 }
 
 func TestPush_UploadsAndDeletes(t *testing.T) {
@@ -73,7 +72,7 @@ func TestPush_UploadsAndDeletes(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("code %d: %s", r.code, r.stderr)
 	}
-	for _, line := range []string{`~ /a\.js`, `~ /c\.js`, `- /b\.js`} {
+	for _, line := range []string{`^  ~ /a\.js$`, `^  \+ /c\.js$`, `^  - /b\.js$`, `^pushed 3 files to "`} {
 		matches(t, r.stdout, line)
 	}
 	files := w.api.Files(id)
@@ -90,16 +89,15 @@ func TestPush_BinaryFiles(t *testing.T) {
 	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	w.writeBytes("img/dot.png", png)
 	first := w.run("push")
-	matches(t, first.stdout, `~ /img/dot\.png \(binary\)`)
+	matches(t, first.stdout, `\+ /img/dot\.png \(binary\)`)
 	data, isBinary, ok := w.api.File(id, "/img/dot.png")
 	if !ok || !isBinary || !bytes.Equal(data, png) {
 		t.Errorf("remote dot.png = %v, binary %v, found %v", data, isBinary, ok)
 	}
 	second := w.run("push")
-	if strings.Contains(second.stdout, "~") || writes(w, id) != 1 {
+	if second.stdout != "already up to date\n" || writes(w, id) != 1 {
 		t.Errorf("second push stdout %q, writes %d; want no write", second.stdout, writes(w, id))
 	}
-	matches(t, second.stdout, `^editor +https://codepen\.io/editor/`)
 }
 
 func TestPush_SkipsEmptyAndIgnoredFiles(t *testing.T) {
@@ -110,10 +108,9 @@ func TestPush_SkipsEmptyAndIgnoredFiles(t *testing.T) {
 	w.write(".env.production", "SECRET=1")
 	w.write(".envrc", "dotenv")
 	r := w.run("push")
-	if r.code != 0 || writes(w, id) != 0 {
+	if r.code != 0 || writes(w, id) != 0 || r.stdout != "already up to date\n" {
 		t.Errorf("code %d, stdout %q, writes %d", r.code, r.stdout, writes(w, id))
 	}
-	matches(t, r.stdout, `^editor +https://codepen\.io/editor/`)
 }
 
 func TestPush_RefusesToEmptyPen(t *testing.T) {
@@ -136,11 +133,29 @@ func TestPush_PollsRunningBuild(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("code %d: %s", r.code, r.stderr)
 	}
-	matches(t, r.stdout, `build Success`)
+	matches(t, r.stdout, `^pushed 1 file to "`)
 	if w.api.Calls(`^GET /v2/builds/`) == 0 {
 		t.Error("the build was never polled")
 	}
 	if got := w.api.Files(id)["/a.js"]; got != "2" {
 		t.Errorf("remote a.js = %q", got)
+	}
+}
+
+// A failed build still saved the files, but the command fails, so scripts notice.
+func TestPush_FailedBuild(t *testing.T) {
+	t.Parallel()
+	w, id := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	w.write("a.js", "2")
+	w.api.FailBuilds(codepen.BuildError{Path: "/a.js", Message: "bad", Range: &codepen.Range{Start: codepen.Position{Line: 3}}})
+	r := w.run("push")
+	if r.code != 1 {
+		t.Errorf("code = %d, want 1", r.code)
+	}
+	matches(t, r.stdout, `^pushed 1 file to "`)
+	matches(t, r.stderr, `^  ✗ /a\.js:3 bad$`)
+	matches(t, r.stderr, `^✗ the build failed with 1 error; your files are saved on CodePen$`)
+	if got := w.api.Files(id)["/a.js"]; got != "2" {
+		t.Errorf("remote a.js = %q, want the pushed file", got)
 	}
 }

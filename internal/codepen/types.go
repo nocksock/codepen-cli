@@ -8,6 +8,7 @@ const (
 	BuildRunning  = "Running"
 	BuildCanceled = "Canceled"
 	BuildSuccess  = "Success"
+	BuildFailed   = "Failed" // the files are saved all the same
 )
 
 // Pen is a Pen's metadata (GET /pens/{id}).

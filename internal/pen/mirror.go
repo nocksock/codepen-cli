@@ -16,6 +16,7 @@ import (
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/diff"
+	"github.com/nocksock/codepen-cli/internal/human"
 	"github.com/nocksock/codepen-cli/internal/penconfig"
 	"github.com/nocksock/codepen-cli/internal/penstate"
 	"github.com/nocksock/codepen-cli/internal/ref"
@@ -39,9 +40,18 @@ type Mirror struct {
 	cfg        Config
 	id         string
 	head       string // version id of the tracked head
+	title      string
 	urls       codepen.URLs
 	remote     map[string]codepen.File
 	isTracking bool
+	build      codepen.Build // the last settled build
+}
+
+// BuildFailedError is a push whose files were saved, but whose build failed.
+type BuildFailedError struct{ Errors int }
+
+func (e *BuildFailedError) Error() string {
+	return fmt.Sprintf("the build failed with %s; your files are saved on CodePen", human.Plural(e.Errors, "error"))
 }
 
 // Open returns a Mirror for cfg. It makes no requests.
@@ -80,9 +90,10 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 	}
 	changes := diff.Between(local, m.remote)
 	if changes.IsEmpty() {
+		m.cfg.Reporter.Report(UpToDate{})
 		return nil
 	}
-	m.cfg.Reporter.Report(Planned{Changes: changes})
+	m.cfg.Reporter.Report(Planned{Changes: changes, New: m.added(changes)})
 	expected := m.head
 	if opts.Force {
 		expected = ""
@@ -100,7 +111,35 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 		}
 		return err
 	}
-	return m.writeBack(ctx, local)
+	if err := m.writeBack(ctx, local); err != nil {
+		return err
+	}
+	m.cfg.Reporter.Report(Pushed{Title: m.title, Files: len(changes.Writes) + len(changes.Uploads) + len(changes.Deletes)})
+	return m.buildResult()
+}
+
+// added marks the changed paths the Pen doesn't have yet.
+func (m *Mirror) added(changes codepen.ChangeSet) map[string]bool {
+	isNew := map[string]bool{}
+	for _, w := range changes.Writes {
+		if _, exists := m.remote[w.Path]; !exists {
+			isNew[w.Path] = true
+		}
+	}
+	for _, u := range changes.Uploads {
+		if _, exists := m.remote[u.Path]; !exists {
+			isNew[u.Path] = true
+		}
+	}
+	return isNew
+}
+
+// buildResult is the error a failed last build makes of an otherwise done push.
+func (m *Mirror) buildResult() error {
+	if m.build.Status == codepen.BuildFailed {
+		return &BuildFailedError{Errors: len(m.build.Errors)}
+	}
+	return nil
 }
 
 // create makes a Pen from the directory; an empty one gets CodePen's starter files.
@@ -109,16 +148,20 @@ func (m *Mirror) create(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	changes := diff.Between(local, nil)
+	if !changes.IsEmpty() {
+		m.cfg.Reporter.Report(Planned{Changes: changes, New: m.added(changes)})
+	}
 	created, err := m.cfg.API.CreatePen(ctx, codepen.NewPen{
 		Title:   filepath.Base(m.cfg.Root),
-		Changes: diff.Between(local, nil),
+		Changes: changes,
 		Starter: len(local) == 0,
 	})
 	if err != nil {
 		return err
 	}
-	m.id, m.urls = created.ID, created.URLs
-	m.cfg.Reporter.Report(Created{URLs: created.URLs})
+	m.id, m.title, m.urls = created.ID, created.Title, created.URLs
+	m.cfg.Reporter.Report(Created{Title: created.Title, URLs: created.URLs})
 	// Recorded before the build settles, so a failure later can't lose the new Pen.
 	if err := m.recordID(); err != nil {
 		return err
@@ -126,7 +169,10 @@ func (m *Mirror) create(ctx context.Context) error {
 	if err := m.settle(ctx, created.Build); err != nil {
 		return err
 	}
-	return m.writeBack(ctx, local)
+	if err := m.writeBack(ctx, local); err != nil {
+		return err
+	}
+	return m.buildResult()
 }
 
 // PullOptions change how Pull behaves.
@@ -180,7 +226,7 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 		return err
 	}
 	if before.id != id {
-		m.cfg.Reporter.Report(Connected{URLs: m.urls})
+		m.cfg.Reporter.Report(Connected{Title: m.title, ID: m.id, URLs: m.urls})
 	}
 	for _, p := range kept {
 		m.cfg.Reporter.Report(Kept{Path: p})
@@ -188,7 +234,15 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 	if err := m.write(ctx, writes); err != nil {
 		return err
 	}
-	return m.saveState()
+	if err := m.saveState(); err != nil {
+		return err
+	}
+	if len(writes) == 0 {
+		m.cfg.Reporter.Report(UpToDate{})
+	} else {
+		m.cfg.Reporter.Report(Pulled{Files: len(writes)})
+	}
+	return nil
 }
 
 // merge sorts the remote files that differ locally, judged against base, the
@@ -239,7 +293,7 @@ func (m *Mirror) fetch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	m.urls = meta.URLs
+	m.title, m.urls = meta.Title, meta.URLs
 	head := ""
 	if meta.SavedVersion != nil {
 		head = meta.SavedVersion.ID
@@ -273,6 +327,7 @@ func (m *Mirror) settle(ctx context.Context, build codepen.Build) error {
 	if err != nil {
 		return err
 	}
+	m.build = build
 	m.cfg.Reporter.Report(Built{Build: build})
 	version, err := m.cfg.API.Version(ctx, build.VersionID)
 	if err != nil {

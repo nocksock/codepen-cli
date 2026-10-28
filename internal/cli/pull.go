@@ -21,11 +21,7 @@ func newPullCmd(a *app) *cobra.Command {
 			if len(args) == 1 {
 				opts.Ref = args[0]
 			}
-			if err := m.Pull(cmd.Context(), opts); err != nil {
-				return err
-			}
-			a.showURLs(m.URLs())
-			return nil
+			return m.Pull(cmd.Context(), opts)
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "switch to PEN although another Pen is connected, and replace differing local files")

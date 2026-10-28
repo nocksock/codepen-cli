@@ -73,11 +73,14 @@ func TestMirror_Push_CreatesPen(t *testing.T) {
 	if got := api.Files(m.ID())["/index.html"]; got != "<h1>x</h1>" {
 		t.Errorf("remote index.html = %q", got)
 	}
-	if len(rec.events) == 0 {
-		t.Fatal("no events reported")
+	if len(rec.events) < 2 {
+		t.Fatalf("events = %#v, want the plan, then Created", rec.events)
 	}
-	if _, ok := rec.events[0].(Created); !ok {
-		t.Errorf("first event = %#v, want Created", rec.events[0])
+	if planned, ok := rec.events[0].(Planned); !ok || !planned.New["/index.html"] {
+		t.Errorf("first event = %#v, want Planned with /index.html new", rec.events[0])
+	}
+	if _, ok := rec.events[1].(Created); !ok {
+		t.Errorf("second event = %#v, want Created", rec.events[1])
 	}
 	if _, err := os.Stat(filepath.Join(root, ".codepen", "pen.config.json")); err != nil {
 		t.Errorf("compiler patch not written back: %v", err)
