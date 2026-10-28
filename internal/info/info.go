@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/diff"
+	"github.com/nocksock/codepen-cli/internal/filter"
 	"github.com/nocksock/codepen-cli/internal/human"
 	"github.com/nocksock/codepen-cli/internal/tree"
 )
@@ -30,7 +32,7 @@ type Status struct {
 
 // Gather fetches the Pen, its files and version count, and compares the files
 // with the directory root.
-func Gather(ctx context.Context, api *codepen.Client, id, root string) (Status, error) {
+func Gather(ctx context.Context, api *codepen.Client, id, root string, f *filter.Filter) (Status, error) {
 	var s Status
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() (err error) {
@@ -48,18 +50,20 @@ func Gather(ctx context.Context, api *codepen.Client, id, root string) (Status, 
 	if err := g.Wait(); err != nil {
 		return Status{}, err
 	}
-	s.Changes, s.LocalErr = compare(root, s.Files)
+	s.Changes, s.LocalErr = compare(root, s.Files, f)
 	return s, nil
 }
 
 // compare returns what a push from root would send. Its error goes into the
 // Status rather than failing Gather, so info still shows the Pen.
-func compare(root string, files []codepen.File) (codepen.ChangeSet, error) {
+func compare(root string, files []codepen.File, f *filter.Filter) (codepen.ChangeSet, error) {
 	local, err := tree.Read(root)
 	if err != nil {
 		return codepen.ChangeSet{}, err
 	}
-	return diff.Between(local, diff.ByPath(files)), nil
+	maps.DeleteFunc(local, func(p string, _ []byte) bool { return f.Skips(p) })
+	synced := slices.DeleteFunc(slices.Clone(files), func(file codepen.File) bool { return f.Skips(file.Path) })
+	return diff.Between(local, diff.ByPath(synced)), nil
 }
 
 // Render formats s as aligned "label  value" lines, with times relative to now.

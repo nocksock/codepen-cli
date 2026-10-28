@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/nocksock/codepen-cli/internal/pen"
-	"github.com/nocksock/codepen-cli/internal/tree"
 	"github.com/nocksock/codepen-cli/internal/watch"
 )
 
@@ -34,6 +33,7 @@ pen pull, and start it again.`,
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite the Pen even if it changed on CodePen")
+	a.filterFlags(cmd)
 	return cmd
 }
 
@@ -50,7 +50,16 @@ func (a *app) syncPen(ctx context.Context, force bool) error {
 	if err != nil {
 		return err
 	}
-	changes, err := watch.Changes(ctx, cfg.Dir, watch.Options{Skip: tree.IsIgnored})
+	f, err := a.filter(cfg)
+	if err != nil {
+		return err
+	}
+	changes, err := watch.Changes(ctx, cfg.Dir, watch.Options{Skip: func(p string, isDir bool) bool {
+		if isDir {
+			return f.SkipsDir(p)
+		}
+		return f.Skips(p)
+	}})
 	if err != nil {
 		return err
 	}

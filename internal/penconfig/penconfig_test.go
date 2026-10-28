@@ -109,3 +109,42 @@ func TestSave_RefusesInvalidJSON(t *testing.T) {
 		t.Error("Save() over invalid json succeeded")
 	}
 }
+
+func TestList_RoundTrip(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := Save(root, "P1"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := List(root, Exclude); err != nil || len(got) != 0 {
+		t.Errorf("List() before setting = %q, %v; want empty", got, err)
+	}
+	if err := SetList(root, Exclude, []string{"*.map", "dist/"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := List(root, Exclude)
+	if err != nil || len(got) != 2 || got[0] != "*.map" || got[1] != "dist/" {
+		t.Errorf("List() = %q, %v", got, err)
+	}
+	if id, _ := Read(root); id != "P1" {
+		t.Errorf("id = %q, want it kept", id)
+	}
+	if err := SetList(root, Exclude, nil); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(root, Name))
+	if string(data) != "{\n  \"id\": \"P1\"\n}\n" {
+		t.Errorf("config after clearing = %q, want the key gone", data)
+	}
+}
+
+func TestList_RefusesNonList(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, Name), []byte(`{"include":"src/"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := List(root, Include); err == nil {
+		t.Error("List() of a string succeeded; want an error naming the key")
+	}
+}

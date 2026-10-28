@@ -29,6 +29,8 @@ type Config struct {
 	PenID        string        // CODEPEN_ID, else the id in Dir/.codepen.config.json; "" when none
 	APIURL       string        // CODEPEN_API_URL, from the environment only; "" for the production API
 	PollInterval time.Duration // CODEPEN_POLL_MS; 0 for the default
+	Include      []string      // patterns from Dir/.codepen.config.json: only matching files sync
+	Exclude      []string      // patterns from Dir/.codepen.config.json: matching files don't sync
 }
 
 // Load reads the settings for the working directory dir (absolute). Values come
@@ -54,6 +56,12 @@ func Load(dir string, getenv func(string) (string, bool)) (Config, error) {
 		}
 	}
 	if cfg.PollInterval, err = millis(lookup("CODEPEN_POLL_MS")); err != nil {
+		return Config{}, err
+	}
+	if cfg.Include, err = penconfig.List(cfg.Dir, penconfig.Include); err != nil {
+		return Config{}, err
+	}
+	if cfg.Exclude, err = penconfig.List(cfg.Dir, penconfig.Exclude); err != nil {
 		return Config{}, err
 	}
 	return cfg, nil

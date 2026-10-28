@@ -33,5 +33,6 @@ it can't overwrite edits it hasn't seen. Run pen pull first, or pass --force.`,
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite the Pen even if it changed on CodePen since your last sync")
 	cmd.Flags().BoolVar(&isDryRun, "dry-run", false, "list what would change, change nothing")
+	a.filterFlags(cmd)
 	return cmd
 }
