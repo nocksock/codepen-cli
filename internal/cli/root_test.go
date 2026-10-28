@@ -104,7 +104,7 @@ func TestRun_MissingAPIKey(t *testing.T) {
 	w := newWorkspace(t, nil)
 	delete(w.vars, "CODEPEN_API_KEY")
 	r := w.run("push")
-	if r.code != 1 || !strings.Contains(r.stderr, "CODEPEN_API_KEY is not set") {
+	if r.code != 1 || !strings.Contains(r.stderr, "CODEPEN_API_KEY is not set: create a key in your CodePen settings, then export it or put it in .env") {
 		t.Errorf("code %d, stderr %q", r.code, r.stderr)
 	}
 }
@@ -114,7 +114,7 @@ func TestRun_InvalidAPIKey(t *testing.T) {
 	w := newWorkspace(t, map[string]string{"a.js": "1"})
 	w.vars["CODEPEN_API_KEY"] = "cp_user_wrong"
 	r := w.run("push")
-	if r.code != 1 || !strings.Contains(r.stderr, "401 UNAUTHENTICATED") {
+	if r.code != 1 || !strings.Contains(r.stderr, "CodePen rejected the API key: check CODEPEN_API_KEY") {
 		t.Errorf("code %d, stderr %q", r.code, r.stderr)
 	}
 }

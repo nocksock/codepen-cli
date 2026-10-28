@@ -119,7 +119,7 @@ func TestPush_RefusesToEmptyPen(t *testing.T) {
 	w.remove("a.js")
 	w.remove(".codepen")
 	r := w.run("push")
-	if r.code != 1 || !strings.Contains(r.stderr, "refusing to push") || writes(w, id) != 0 {
+	if r.code != 1 || !strings.Contains(r.stderr, "would delete every file in the Pen; add files, or run `pen pull`") || writes(w, id) != 0 {
 		t.Errorf("code %d, stderr %q, writes %d", r.code, r.stderr, writes(w, id))
 	}
 }
@@ -206,4 +206,14 @@ func TestPush_DryRunWithoutPen(t *testing.T) {
 	}
 	matches(t, r.stdout, `^  \+ /a\.js$`)
 	matches(t, r.stdout, `^would create a Pen with 2 files$`)
+}
+
+func TestPush_ClassicPen(t *testing.T) {
+	t.Parallel()
+	w, id := connected(t, codepentest.Seed{Editor: "V1", Files: map[string]string{"a.js": "1"}})
+	w.write("a.js", "2")
+	r := w.run("push")
+	if r.code != 1 || !strings.Contains(r.stderr, "is a Classic Pen") || writes(w, id) != 0 {
+		t.Errorf("code %d, stderr %q, writes %d; want a refusal before writing", r.code, r.stderr, writes(w, id))
+	}
 }

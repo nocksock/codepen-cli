@@ -103,7 +103,7 @@ func TestPull_AfterPush(t *testing.T) {
 func TestPull_WithoutPenFails(t *testing.T) {
 	t.Parallel()
 	r := newWorkspace(t, nil).run("pull")
-	if r.code != 1 || !strings.Contains(r.stderr, "no Pen to pull") {
+	if r.code != 1 || !strings.Contains(r.stderr, "no Pen connected: run `pen push` or `pen pull <PEN>`") {
 		t.Errorf("code %d, stderr %q", r.code, r.stderr)
 	}
 }

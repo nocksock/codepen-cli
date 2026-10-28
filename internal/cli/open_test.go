@@ -37,7 +37,7 @@ func TestOpen_Failures(t *testing.T) {
 	t.Parallel()
 	w, _ := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	undeployed := w.run("open", "live")
-	if undeployed.code != 1 || !strings.Contains(undeployed.stderr, "no live URL") {
+	if undeployed.code != 1 || !strings.Contains(undeployed.stderr, "the Pen isn't deployed, so it has no live URL") {
 		t.Errorf("open live: code %d, stderr %q", undeployed.code, undeployed.stderr)
 	}
 	bogus := w.run("open", "bogus")
@@ -75,9 +75,9 @@ func TestOpen_BrowserLaunchFails(t *testing.T) {
 	w.runner.missing["xdg-open"] = true
 	url := w.api.URLs(id).Editor
 	r := w.run("open")
-	want := url + "\ncould not launch a browser; open " + url + "\n"
-	if r.code != 0 || r.stdout != want || r.stderr != "" {
-		t.Errorf("code %d, stdout %q, stderr %q, want stdout %q", r.code, r.stdout, r.stderr, want)
+	// The URL is still what was asked for; the failure is a problem, so stderr.
+	if r.code != 0 || r.stdout != url+"\n" || r.stderr != "could not launch a browser: open the URL above yourself\n" {
+		t.Errorf("code %d, stdout %q, stderr %q", r.code, r.stdout, r.stderr)
 	}
 }
 
