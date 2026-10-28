@@ -26,14 +26,33 @@ func retryable(method string, status int, err error) bool {
 	return err != nil || status >= http.StatusInternalServerError
 }
 
-// delay is how long to wait before retry number attempt+1.
-func (c *Client) delay(resp *http.Response, attempt int) time.Duration {
+// delay is how long to wait before retry number attempt+1, and false when a
+// Retry-After asks for more than maxRetryAfter: a wait that long means a used
+// up quota, and retrying would only spend more of it.
+func (c *Client) delay(resp *http.Response, attempt int) (time.Duration, bool) {
 	if resp != nil {
-		if seconds, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && seconds >= 0 {
-			return time.Duration(min(seconds, int(maxRetryAfter/time.Second))) * time.Second
+		if wait, ok := retryAfter(resp.Header.Get("Retry-After")); ok {
+			return wait, wait <= maxRetryAfter
 		}
 	}
-	return c.backoff << attempt
+	return c.backoff << attempt, true
+}
+
+// retryAfter reads a Retry-After value, given in seconds or as an HTTP date.
+func retryAfter(value string) (time.Duration, bool) {
+	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil {
+		if seconds < 0 {
+			return 0, false
+		}
+		if seconds > int64(maxRetryAfter/time.Second) {
+			return maxRetryAfter + time.Second, true // past the cap, without overflowing
+		}
+		return time.Duration(seconds) * time.Second, true
+	}
+	if date, err := http.ParseTime(value); err == nil {
+		return max(time.Until(date), 0), true
+	}
+	return 0, false
 }
 
 // sleep waits for d or until ctx is done.

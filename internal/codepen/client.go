@@ -120,7 +120,8 @@ func (c *Client) send(ctx context.Context, method, path string, body *payload) (
 		if resp != nil {
 			status = resp.StatusCode
 		}
-		if attempt == maxRetries || !retryable(method, status, err) {
+		wait, isWorthWaiting := c.delay(resp, attempt)
+		if attempt == maxRetries || !retryable(method, status, err) || !isWorthWaiting {
 			if err != nil {
 				return nil, fmt.Errorf("%s %s: %w", method, path, withoutURL(err))
 			}
@@ -132,7 +133,6 @@ func (c *Client) send(ctx context.Context, method, path string, body *payload) (
 			}
 			return nil, fmt.Errorf("%s %s: %w", method, path, ctx.Err())
 		}
-		wait := c.delay(resp, attempt)
 		if resp != nil {
 			drain(resp)
 		}
