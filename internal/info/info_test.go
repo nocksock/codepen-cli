@@ -99,7 +99,7 @@ func TestGather_UnreadableDirectory(t *testing.T) {
 	api := codepentest.Start(t)
 	id := api.Seed(codepentest.Seed{Files: map[string]string{"a.js": "1"}})
 	client := codepen.New(codepentest.Key, codepen.WithBaseURL(api.URL()))
-	s, err := Gather(t.Context(), client, id, filepath.Join(t.TempDir(), "typo"))
+	s, err := Gather(t.Context(), client, id, filepath.Join(t.TempDir(), "typo"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

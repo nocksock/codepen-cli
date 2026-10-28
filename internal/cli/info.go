@@ -30,7 +30,11 @@ func (a *app) showInfo(ctx context.Context, isJSON bool) error {
 	if err != nil {
 		return err
 	}
-	status, err := info.Gather(ctx, api, cfg.PenID, cfg.Dir)
+	f, err := a.filter(cfg)
+	if err != nil {
+		return err
+	}
+	status, err := info.Gather(ctx, api, cfg.PenID, cfg.Dir, f)
 	if err != nil {
 		return err
 	}

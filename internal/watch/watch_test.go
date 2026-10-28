@@ -91,11 +91,29 @@ func TestChanges(t *testing.T) {
 			t.Fatal(err)
 		}
 		opts := fast
-		opts.Skip = func(p string) bool { return strings.Contains(p, "node_modules") || p == "/.env.local" }
+		opts.Skip = func(p string, _ bool) bool { return strings.Contains(p, "node_modules") || p == "/.env.local" }
 		changes := start(t, dir, opts)
 		write(t, filepath.Join(dir, "node_modules", "dep.js"), "x")
 		write(t, filepath.Join(dir, ".env.local"), "CODEPEN_ID=x")
 		expectQuiet(t, changes, 300*time.Millisecond)
+	})
+
+	// With an allow-list, folders aren't skipped for not matching it, or files
+	// in new folders would never be seen.
+	t.Run("skips files and folders separately", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		opts := fast
+		opts.Skip = func(p string, isDir bool) bool { return !isDir && !strings.HasPrefix(p, "/src/") }
+		changes := start(t, dir, opts)
+		write(t, filepath.Join(dir, "notes.txt"), "x")
+		expectQuiet(t, changes, 300*time.Millisecond)
+		if err := os.MkdirAll(filepath.Join(dir, "src", "deep"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		expectSignal(t, changes) // the new folders themselves
+		write(t, filepath.Join(dir, "src", "deep", "a.js"), "1")
+		expectSignal(t, changes)
 	})
 
 	t.Run("collapses a burst into one signal", func(t *testing.T) {
@@ -151,7 +169,7 @@ func TestTracker_Fingerprint(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "a.js"), "1")
-	tr := &tracker{dir: dir, opts: Options{Skip: func(p string) bool { return p == "/ignored.js" }}.withDefaults()}
+	tr := &tracker{dir: dir, opts: Options{Skip: func(p string, _ bool) bool { return p == "/ignored.js" }}.withDefaults()}
 	before := tr.fingerprint()
 
 	write(t, filepath.Join(dir, "ignored.js"), "x")
@@ -188,8 +206,8 @@ func TestTracker_RescanFallback(t *testing.T) {
 func TestTracker_IsSkipped_root(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	tr := &tracker{dir: dir, opts: Options{Skip: func(string) bool { return true }}.withDefaults()}
-	if tr.isSkipped(dir) {
+	tr := &tracker{dir: dir, opts: Options{Skip: func(string, bool) bool { return true }}.withDefaults()}
+	if tr.isSkipped(dir, true) {
 		t.Error("the root itself must never be skipped")
 	}
 }

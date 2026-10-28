@@ -57,7 +57,7 @@ func (m *Mirror) Fork(ctx context.Context, opts ForkOptions) error {
 	var changes codepen.ChangeSet
 	var err error
 	if isLocal {
-		if local, err = tree.Read(m.cfg.Root); err != nil {
+		if local, err = m.read(); err != nil {
 			return err
 		}
 		if changes = diff.Between(local, nil); changes.IsEmpty() {
@@ -94,7 +94,7 @@ func (m *Mirror) Fork(ctx context.Context, opts ForkOptions) error {
 	}
 	target := m
 	if opts.Into != "" {
-		target = Open(Config{API: m.cfg.API, Root: opts.Into, Reporter: m.cfg.Reporter, State: m.cfg.State})
+		target = Open(Config{API: m.cfg.API, Root: opts.Into, Reporter: m.cfg.Reporter, State: m.cfg.State, Filter: m.cfg.Filter})
 	}
 	// The copy's own build settles first, so the pull gets its patched files.
 	build, err := m.cfg.API.Settle(ctx, created.Build)
@@ -113,7 +113,7 @@ func (m *Mirror) Fork(ctx context.Context, opts ForkOptions) error {
 // checkMerge fails when pulling the tracked files into the folder would
 // replace a file changed on both sides.
 func (m *Mirror) checkMerge() error {
-	local, err := readOrEmpty(m.cfg.Root)
+	local, err := m.readOrEmpty()
 	if err != nil {
 		return err
 	}

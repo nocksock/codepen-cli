@@ -16,6 +16,7 @@ import (
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/diff"
+	"github.com/nocksock/codepen-cli/internal/filter"
 	"github.com/nocksock/codepen-cli/internal/human"
 	"github.com/nocksock/codepen-cli/internal/penconfig"
 	"github.com/nocksock/codepen-cli/internal/penstate"
@@ -30,6 +31,7 @@ type Config struct {
 	ID       string         // connected Pen; "" when none
 	Reporter Reporter       // required
 	State    penstate.Store // where the last sync is remembered
+	Filter   *filter.Filter // which files sync; nil for all but tree's ignores
 }
 
 // Mirror is a local directory mirrored to a Pen. Between calls it remembers the
@@ -89,7 +91,7 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 	if m.editor != "" && m.editor != "V2" {
 		return fmt.Errorf("%s is a Classic Pen: it can be pulled, but only 2.0 Pens can be pushed", m.id)
 	}
-	local, err := tree.Read(m.cfg.Root)
+	local, err := m.read()
 	if err != nil {
 		return err
 	}
@@ -156,7 +158,7 @@ func (m *Mirror) buildResult() error {
 
 // create makes a Pen from the directory; an empty one gets CodePen's starter files.
 func (m *Mirror) create(ctx context.Context, isDryRun bool) error {
-	local, err := tree.Read(m.cfg.Root)
+	local, err := m.read()
 	if err != nil {
 		return err
 	}
@@ -216,7 +218,7 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 		*m = before
 		return err
 	}
-	local, err := readOrEmpty(m.cfg.Root)
+	local, err := m.readOrEmpty()
 	if err != nil {
 		*m = before
 		return err
@@ -359,7 +361,7 @@ func (m *Mirror) settle(ctx context.Context, build codepen.Build) error {
 // track remembers head and its files.
 func (m *Mirror) track(head string, files []codepen.File) {
 	m.head = head
-	m.remote = diff.ByPath(files)
+	m.remote = diff.ByPath(slices.DeleteFunc(files, func(f codepen.File) bool { return m.cfg.Filter.Skips(f.Path) }))
 	m.isTracking = true
 }
 
@@ -447,9 +449,19 @@ func (m *Mirror) download(ctx context.Context, file codepen.File) error {
 	return tree.Write(m.cfg.Root, file.Path, body)
 }
 
-// readOrEmpty reads root; a directory that doesn't exist yet is empty.
-func readOrEmpty(root string) (tree.Snapshot, error) {
-	local, err := tree.Read(root)
+// read returns the directory's files that sync.
+func (m *Mirror) read() (tree.Snapshot, error) {
+	local, err := tree.Read(m.cfg.Root)
+	if err != nil {
+		return nil, err
+	}
+	maps.DeleteFunc(local, func(p string, _ []byte) bool { return m.cfg.Filter.Skips(p) })
+	return local, nil
+}
+
+// readOrEmpty is read for a directory that may not exist yet, which is empty.
+func (m *Mirror) readOrEmpty() (tree.Snapshot, error) {
+	local, err := m.read()
 	if errors.Is(err, fs.ErrNotExist) {
 		return tree.Snapshot{}, nil
 	}

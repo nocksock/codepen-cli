@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
+
+	"github.com/spf13/cobra"
 
 	"github.com/nocksock/codepen-cli/internal/codepen"
 	"github.com/nocksock/codepen-cli/internal/config"
+	"github.com/nocksock/codepen-cli/internal/filter"
 	"github.com/nocksock/codepen-cli/internal/pen"
 	"github.com/nocksock/codepen-cli/internal/penstate"
 )
@@ -14,7 +18,20 @@ import (
 // app builds what the commands need from Env.
 type app struct {
 	env     Env
-	isQuiet bool // -q: progress is not printed
+	isQuiet bool     // -q: progress is not printed
+	include []string // --include: patterns added to the config's include list
+	exclude []string // --exclude: patterns added to the config's exclude list
+}
+
+// filter is which files sync: the config's lists plus those from flags.
+func (a *app) filter(cfg config.Config) (*filter.Filter, error) {
+	return filter.New(append(slices.Clone(cfg.Include), a.include...), append(slices.Clone(cfg.Exclude), a.exclude...))
+}
+
+// filterFlags adds --include and --exclude to cmd.
+func (a *app) filterFlags(cmd *cobra.Command) {
+	cmd.Flags().StringArrayVar(&a.include, "include", nil, "sync only files matching this pattern too (repeatable)")
+	cmd.Flags().StringArrayVar(&a.exclude, "exclude", nil, "leave files matching this pattern out too (repeatable)")
 }
 
 // progress is where progress goes: stdout, or nowhere when quiet. Errors and
@@ -70,7 +87,12 @@ func (a *app) mirrorTo(ctx context.Context, reporter pen.Reporter) (*pen.Mirror,
 	if err != nil {
 		return nil, cfg, err
 	}
+	f, err := a.filter(cfg)
+	if err != nil {
+		return nil, cfg, err
+	}
 	m := pen.Open(pen.Config{
+		Filter:   f,
 		API:      api,
 		Root:     cfg.Dir,
 		ID:       cfg.PenID,

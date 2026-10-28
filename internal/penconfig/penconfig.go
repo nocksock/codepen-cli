@@ -20,6 +20,60 @@ const Name = ".codepen.config.json"
 
 const idKey = "id"
 
+// The lists of patterns that choose which files sync (see package filter).
+const (
+	Include = "include"
+	Exclude = "exclude"
+)
+
+// List returns the patterns stored under key in root's config; none when unset.
+func List(root, key string) ([]string, error) {
+	data, err := read(root)
+	if err != nil {
+		return nil, err
+	}
+	fields, err := decode(data)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", filepath.Join(root, Name), err)
+	}
+	raw, ok := fields[key]
+	if !ok {
+		return nil, nil
+	}
+	var list []string
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return nil, fmt.Errorf("%s: %q is not a list of strings: %w", filepath.Join(root, Name), key, err)
+	}
+	return list, nil
+}
+
+// SetList stores patterns under key in root's config, keeping the other fields;
+// no patterns removes the key.
+func SetList(root, key string, patterns []string) error {
+	data, err := read(root)
+	if err != nil {
+		return err
+	}
+	fields, err := decode(data)
+	if err != nil {
+		return fmt.Errorf("%s: %w", Name, err)
+	}
+	if len(patterns) == 0 {
+		delete(fields, key)
+	} else {
+		value, err := json.Marshal(patterns)
+		if err != nil {
+			return err
+		}
+		fields[key] = value
+	}
+	out, err := encode(fields)
+	if err != nil {
+		return err
+	}
+	return tree.WriteLocal(root, "/"+Name, bytes.NewReader(out))
+}
+
 // Read returns the Pen id stored in root, or "" when there is none.
 func Read(root string) (string, error) {
 	data, err := read(root)

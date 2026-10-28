@@ -18,14 +18,14 @@ import (
 
 // Options tune Changes.
 type Options struct {
-	Skip     func(path string) bool // paths ("/a/b", relative to the directory) to ignore
-	Debounce time.Duration          // quiet time before a signal (default 400ms)
-	Rescan   time.Duration          // fingerprint interval (default 5s)
+	Skip     func(path string, isDir bool) bool // paths ("/a/b", relative to the directory) to ignore
+	Debounce time.Duration                      // quiet time before a signal (default 400ms)
+	Rescan   time.Duration                      // fingerprint interval (default 5s)
 }
 
 func (o Options) withDefaults() Options {
 	if o.Skip == nil {
-		o.Skip = func(string) bool { return false }
+		o.Skip = func(string, bool) bool { return false }
 	}
 	if o.Debounce <= 0 {
 		o.Debounce = 400 * time.Millisecond
@@ -112,7 +112,15 @@ func (t *tracker) run(ctx context.Context, out chan<- struct{}) {
 // isRelevant reports whether event should trigger a signal, and starts
 // watching directories as they appear.
 func (t *tracker) isRelevant(event fsnotify.Event) bool {
-	if event.Op == fsnotify.Chmod || t.isSkipped(event.Name) {
+	if event.Op == fsnotify.Chmod {
+		return false
+	}
+	// A removed path can't be looked at, so it counts unless skipped either way.
+	if info, err := os.Lstat(event.Name); err == nil {
+		if t.isSkipped(event.Name, info.IsDir()) {
+			return false
+		}
+	} else if t.isSkipped(event.Name, false) && t.isSkipped(event.Name, true) {
 		return false
 	}
 	if event.Has(fsnotify.Create) {
@@ -143,7 +151,7 @@ func (t *tracker) addTree(root string) error {
 		if !entry.IsDir() {
 			return nil
 		}
-		if path != t.dir && t.isSkipped(path) {
+		if path != t.dir && t.isSkipped(path, true) {
 			return fs.SkipDir
 		}
 		if err := t.watcher.Add(path); err != nil {
@@ -156,12 +164,12 @@ func (t *tracker) addTree(root string) error {
 	})
 }
 
-func (t *tracker) isSkipped(file string) bool {
+func (t *tracker) isSkipped(file string, isDir bool) bool {
 	rel, err := filepath.Rel(t.dir, file)
 	if err != nil || rel == "." {
 		return false
 	}
-	return t.opts.Skip("/" + filepath.ToSlash(rel))
+	return t.opts.Skip("/"+filepath.ToSlash(rel), isDir)
 }
 
 // fingerprint hashes the paths, sizes and mtimes of all files that aren't skipped.
@@ -172,7 +180,7 @@ func (t *tracker) fingerprint() uint64 {
 		if err != nil || path == t.dir {
 			return nil //nolint:nilerr // unreadable entries are left out of the fingerprint
 		}
-		if t.isSkipped(path) {
+		if t.isSkipped(path, entry.IsDir()) {
 			if entry.IsDir() {
 				return fs.SkipDir
 			}
