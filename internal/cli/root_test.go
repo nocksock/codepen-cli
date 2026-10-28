@@ -49,10 +49,26 @@ func TestRun_UsageErrors(t *testing.T) {
 			if r.code != 2 {
 				t.Errorf("code = %d, want 2", r.code)
 			}
-			if !strings.Contains(r.stderr, "pen push") || !strings.Contains(r.stderr, tt.message) {
-				t.Errorf("stderr lacks usage or %q:\n%s", tt.message, r.stderr)
+			if !strings.Contains(r.stderr, "--help") || !strings.Contains(r.stderr, tt.message) {
+				t.Errorf("stderr lacks a --help pointer or %q:\n%s", tt.message, r.stderr)
 			}
 		})
+	}
+}
+
+// A mistake with one command shows that command's usage, not every command's.
+func TestRun_UsageErrorShowsTheCommand(t *testing.T) {
+	t.Parallel()
+	w := newWorkspace(t, nil)
+	r := w.run("pull", "a", "b")
+	want := "✗ accepts at most 1 arg(s), received 2\nusage: pen pull [PEN] [flags]\nrun `pen pull --help` for more\n"
+	if r.code != 2 || r.stderr != want {
+		t.Errorf("code %d, stderr %q; want 2, %q", r.code, r.stderr, want)
+	}
+	r = w.run("bogus")
+	want = "✗ unknown command \"bogus\"\nrun `pen --help` to see the commands\n"
+	if r.code != 2 || r.stderr != want {
+		t.Errorf("code %d, stderr %q; want 2, %q", r.code, r.stderr, want)
 	}
 }
 
@@ -148,6 +164,31 @@ func TestCommands_ShortMatchesUsage(t *testing.T) {
 		}
 		if !strings.Contains(usageText(), c.Short) {
 			t.Errorf("pen %s: Short %q is not in the usage text", c.Name(), c.Short)
+		}
+	}
+}
+
+// Every command explains itself in --help, with examples to copy.
+func TestCommands_HaveLongHelpAndExamples(t *testing.T) {
+	t.Parallel()
+	root := newRoot(&app{})
+	for _, c := range root.Commands() {
+		if c.Name() == "help" || c.Name() == "completion" {
+			continue
+		}
+		if c.Long == "" || !strings.Contains(c.Example, "pen "+c.Name()) {
+			t.Errorf("pen %s: Long %q, Example %q; want both", c.Name(), c.Long, c.Example)
+		}
+	}
+}
+
+// The root help lists the flags every command takes.
+func TestRun_HelpListsGlobalFlags(t *testing.T) {
+	t.Parallel()
+	r := newWorkspace(t, nil).run("--help")
+	for _, flag := range []string{"-q, --quiet", "-h, --help", "-v, --version", "pen help <command>"} {
+		if !strings.Contains(r.stdout, flag) {
+			t.Errorf("help lacks %q:\n%s", flag, r.stdout)
 		}
 	}
 }
