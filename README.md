@@ -55,7 +55,7 @@ The connected Pen is kept as `"id"` in `.codepen.config.json` at the top of the 
 - Ignored, in any letter case: `.git`, `node_modules`, `.env`, `.env.*`, `.envrc`, `.DS_Store`, `.codepen.config.json`. Ignored paths are never pushed, never written by pull (so a Pen can't plant `.git/hooks` or replace `.env`), and never deleted remotely.
 - In `sync`, a remote edit made while you're watching causes a 409. Run `pen pull` (or use `--force`). Besides file events, `sync` rescans every 5 s, so changes the OS failed to report are still pushed.
 - Reads are retried on network errors, 429 and 5xx; writes only on 429, since a failed write may already have been applied.
-- Exit codes: `0` ok, `1` error, `2` usage error.
+- Exit codes: `0` ok, `1` error, `2` usage error, `130` interrupted (Ctrl-C).
 
 See [API_OVERVIEW.md](API_OVERVIEW.md) for what else the API can do.
 

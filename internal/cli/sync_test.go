@@ -21,8 +21,8 @@ func TestSync_PushesChanges(t *testing.T) {
 	s.waitFor(t, `~ /src/new\.js`)
 	eventually(t, func() bool { return w.api.Files(id)["/src/new.js"] == "3" }, func() string { return "remote src/new.js = 3" })
 
-	if code := s.stop(); code != 0 {
-		t.Errorf("exit code after cancel = %d, want 0", code)
+	if code := s.stop(); code != 130 {
+		t.Errorf("exit code after cancel = %d, want 130", code)
 	}
 }
 
@@ -37,8 +37,8 @@ func TestSync_ReportsRemoteEdit(t *testing.T) {
 	if got := w.api.Files(id)["/a.js"]; got != "from the editor" {
 		t.Errorf("remote a.js = %q, the remote edit was overwritten", got)
 	}
-	if code := s.stop(); code != 0 {
-		t.Errorf("exit code after cancel = %d, want 0", code)
+	if code := s.stop(); code != 130 {
+		t.Errorf("exit code after cancel = %d, want 130", code)
 	}
 }
 
