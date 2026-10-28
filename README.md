@@ -67,14 +67,13 @@ Pull never deletes local files, and push only deletes files on CodePen that you 
 ## Fork
 
 ```sh
-pen fork                      # copy the Pen, with your unpushed edits, and switch this folder to the copy
-pen fork remote               # copy the Pen as it is on CodePen
-pen fork <PEN>                # copy another of your Pens into this folder
-pen fork --into ../variant    # put the copy in a new folder; this one stays on the original
-pen fork --detach             # a fresh Pen with the same files, without CodePen's link to the original
+pen fork --detach                      # copy the Pen, with your unpushed edits, and switch this folder to the copy
+pen fork remote --detach               # copy the Pen as it is on CodePen; your local edits stay, ready to push
+pen fork <PEN> --detach                # copy another of your Pens into this folder
+pen fork --detach --into ../variant    # put the copy in a new folder; this one stays on the original
 ```
 
-Forks count toward CodePen's daily limit on new Pens (3 a day on the free plan).
+For now every fork needs `--detach`: the copy is a new Pen with the same files, without CodePen's link to the original. Linked forks will follow once CodePen documents its fork API. Forks count toward CodePen's daily limit on new Pens (3 a day on the free plan).
 
 ## Commands
 
@@ -83,7 +82,7 @@ Forks count toward CodePen's daily limit on new Pens (3 a day on the free plan).
 | `pen push` | Upload local changes. Creates a Pen if the folder has none. |
 | `pen pull [PEN]` | Download changes from CodePen. With `PEN`, connect the folder to that Pen first. |
 | `pen sync` | Push, then push again on every change until you stop it with Ctrl-C. |
-| `pen fork [SOURCE]` | Copy a Pen and connect a folder to the copy. |
+| `pen fork [SOURCE] --detach` | Copy a Pen and connect a folder to the copy. |
 | `pen info` | Show the Pen's details, build status and local changes waiting to push. |
 | `pen open [editor\|preview\|live]` | Open the Pen in your browser (default: editor). |
 | `pen completion SHELL` | Print a completion script for bash, zsh, fish or powershell. |

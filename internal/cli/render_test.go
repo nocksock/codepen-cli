@@ -39,6 +39,7 @@ func TestRender(t *testing.T) {
 		{name: "connected", event: pen.Connected{Title: "Demo", ID: "p1", URLs: urls}, want: "connected to \"Demo\" (p1)\n  editor  https://codepen.io/editor/x\n"},
 		{name: "pushed one", event: pen.Pushed{Title: "Demo", Files: 1}, want: "pushed 1 file to \"Demo\"\n"},
 		{name: "pushed many", event: pen.Pushed{Title: "Demo", Files: 3}, want: "pushed 3 files to \"Demo\"\n"},
+		{name: "forked", event: pen.Forked{From: "Demo", Title: "Demo", ID: "p2"}, want: "forked \"Demo\" → \"Demo\" (p2)\n"},
 		{name: "pulled", event: pen.Pulled{Files: 2}, want: "pulled 2 files\n"},
 		{name: "up to date", event: pen.UpToDate{}, want: "already up to date\n"},
 		{name: "title is cleaned", event: pen.Pushed{Title: "a\x1b[2J", Files: 1}, want: "pushed 1 file to \"a\\x1b[2J\"\n"},

@@ -195,6 +195,9 @@ func (m *Mirror) create(ctx context.Context, isDryRun bool) error {
 type PullOptions struct {
 	Ref   string // Pen id or URL to connect to; "" for the connected Pen
 	Force bool   // allow switching away from another connected Pen, and replacing local files when connecting
+
+	isSwitching bool   // switch Pens without Force: the user asked for it (fork)
+	baseFrom    string // a Pen whose last sync counts for this one: the fork's source
 }
 
 // Pull writes the Pen's files that differ locally. It never deletes local files.
@@ -204,7 +207,7 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 	if err != nil {
 		return err
 	}
-	if m.id != "" && m.id != id && !opts.Force {
+	if m.id != "" && m.id != id && !opts.Force && !opts.isSwitching {
 		return fmt.Errorf("this directory is connected to %s; pass --force to switch to %s", m.id, id)
 	}
 	before := *m
@@ -224,10 +227,10 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 		return err
 	}
 	base := map[string]string{}
-	if state.Pen == id {
+	if state.Pen == id || (opts.baseFrom != "" && state.Pen == opts.baseFrom) {
 		base = state.Files
 	}
-	writes, kept, conflicts := m.merge(local, base)
+	writes, kept, conflicts := merge(local, m.remote, base)
 	if len(conflicts) > 0 && !opts.Force {
 		*m = before
 		return refusal(id, before.id != id, len(base) > 0, conflicts)
@@ -265,14 +268,14 @@ func (m *Mirror) Pull(ctx context.Context, opts PullOptions) error {
 // files as of the last sync: writes are files missing here or untouched since,
 // kept are local edits to files unchanged remotely, and conflicts changed on
 // both sides, or can't be told apart without a base.
-func (m *Mirror) merge(local tree.Snapshot, base map[string]string) (writes, kept, conflicts []string) {
-	for _, p := range m.stale(local) {
+func merge(local tree.Snapshot, remote map[string]codepen.File, base map[string]string) (writes, kept, conflicts []string) {
+	for _, p := range stale(local, remote) {
 		data, exists := local[p]
 		synced, hasBase := base[p]
 		switch {
 		case !exists || (hasBase && penstate.Sum(data) == synced):
 			writes = append(writes, p)
-		case hasBase && penstate.FileSum(m.remote[p]) == synced:
+		case hasBase && penstate.FileSum(remote[p]) == synced:
 			kept = append(kept, p)
 		default:
 			conflicts = append(conflicts, p)
@@ -375,13 +378,13 @@ func (m *Mirror) recordID() error {
 	return nil
 }
 
-// writeBack writes every file in stale(local), after checking that the
+// writeBack writes every file in stale(local, m.remote), after checking that the
 // directory can hold all of the Pen's files, and remembers the sync.
 func (m *Mirror) writeBack(ctx context.Context, local tree.Snapshot) error {
 	if err := m.checkPaths(); err != nil {
 		return err
 	}
-	if err := m.write(ctx, m.stale(local)); err != nil {
+	if err := m.write(ctx, stale(local, m.remote)); err != nil {
 		return err
 	}
 	return m.saveState()
@@ -416,15 +419,15 @@ func (m *Mirror) saveState() error {
 	return m.cfg.State.Save(m.cfg.Root, penstate.State{Pen: m.id, Version: m.head, Files: files})
 }
 
-// stale lists the tracked remote files that local lacks or differs from, in
+// stale lists the remote files that local lacks or differs from, in
 // order. Ignored paths (.git, .env*, ...) are never listed, so never written.
-func (m *Mirror) stale(local tree.Snapshot) []string {
+func stale(local tree.Snapshot, remote map[string]codepen.File) []string {
 	var paths []string
-	for _, p := range slices.Sorted(maps.Keys(m.remote)) {
+	for _, p := range slices.Sorted(maps.Keys(remote)) {
 		if tree.IsIgnored(p) {
 			continue
 		}
-		if data, ok := local[p]; ok && diff.IsSame(data, m.remote[p]) {
+		if data, ok := local[p]; ok && diff.IsSame(data, remote[p]) {
 			continue
 		}
 		paths = append(paths, p)
