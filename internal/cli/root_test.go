@@ -16,7 +16,7 @@ func TestRun_Help(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("code = %d, want 0", r.code)
 	}
-	for _, command := range []string{"init", "push", "pull", "sync", "info", "open"} {
+	for _, command := range []string{"push", "pull", "sync", "info", "open"} {
 		if !strings.Contains(r.stdout, "pen "+command) {
 			t.Errorf("usage lacks %q:\n%s", "pen "+command, r.stdout)
 		}
@@ -32,6 +32,7 @@ func TestRun_UsageErrors(t *testing.T) {
 	}{
 		{name: "no command", args: nil, message: ""},
 		{name: "unknown command", args: []string{"bogus"}, message: `unknown command "bogus"`},
+		{name: "init is gone", args: []string{"init"}, message: `unknown command "init"`},
 		{name: "unknown flag", args: []string{"push", "--bogus"}, message: "unknown flag: --bogus"},
 		{name: "too many args", args: []string{"pull", "a", "b"}, message: "accepts at most 1 arg"},
 		{name: "unknown completion shell", args: []string{"completion", "bogus"}, message: `unknown shell "bogus"`},
