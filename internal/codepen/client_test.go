@@ -192,6 +192,9 @@ func TestClient_WriteFiles_JSON(t *testing.T) {
 		if r.Method != http.MethodPut || r.URL.Path != "/pens/p1/files" {
 			t.Errorf("%s %s", r.Method, r.URL.Path)
 		}
+		if wait := r.URL.Query().Get("wait"); wait != "0" {
+			t.Errorf("wait = %q, want 0 so the answer can't outlast the request timeout", wait)
+		}
 		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
 			t.Errorf("Content-Type = %q", ct)
 		}
@@ -224,6 +227,9 @@ func TestClient_WriteFiles_Multipart(t *testing.T) {
 		}
 		if len(changes.Files) != 1 || changes.ExpectedVersionID != "v1" {
 			t.Errorf("changes = %+v", changes)
+		}
+		if wait := r.URL.Query().Get("wait"); wait != "0" {
+			t.Errorf("wait = %q, want 0", wait)
 		}
 		if got := r.FormValue("expected_version_id"); got != "v1" {
 			t.Errorf("expected_version_id part = %q", got)
@@ -265,6 +271,9 @@ func TestClient_CreatePen(t *testing.T) {
 				body, _ := io.ReadAll(r.Body)
 				if r.Method != http.MethodPost || r.URL.Path != "/pens" || string(body) != tt.expected {
 					t.Errorf("%s %s %s\nwant %s", r.Method, r.URL.Path, body, tt.expected)
+				}
+				if wait := r.URL.Query().Get("wait"); wait != "0" {
+					t.Errorf("wait = %q, want 0 so the answer can't outlast the request timeout", wait)
 				}
 				w.WriteHeader(http.StatusCreated)
 				w.Write([]byte(`{"id":"p1","urls":{"editor":"https://e"},"build":{"id":"b1"}}`))

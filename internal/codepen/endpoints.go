@@ -94,9 +94,13 @@ func (c *Client) CreatePen(ctx context.Context, pen NewPen) (Created, error) {
 		return Created{}, err
 	}
 	var created Created
-	_, err = c.call(ctx, http.MethodPost, "/pens", data, &created)
+	_, err = c.call(ctx, http.MethodPost, "/pens"+noWait, data, &created)
 	return created, err
 }
+
+// noWait makes a write answer once its files are saved. The API would otherwise
+// wait up to 45s for the build, longer than a request may take; Settle polls it.
+const noWait = "?wait=0"
 
 // WriteFiles applies changes to a Pen as one new version and returns its build.
 // With expected set, the API refuses (ErrConflict) if the head is another version.
@@ -112,7 +116,7 @@ func (c *Client) WriteFiles(ctx context.Context, id string, changes ChangeSet, e
 	var written struct {
 		Build Build `json:"build"`
 	}
-	_, err = c.call(ctx, http.MethodPut, "/pens/"+url.PathEscape(id)+"/files", data, &written)
+	_, err = c.call(ctx, http.MethodPut, "/pens/"+url.PathEscape(id)+"/files"+noWait, data, &written)
 	return written.Build, err
 }
 
