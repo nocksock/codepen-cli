@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/nocksock/codepen-cli/internal/codepen/codepentest"
 )
 
 func TestRun_Help(t *testing.T) {
@@ -103,5 +107,19 @@ func TestRun_UnknownPenExplainsScope(t *testing.T) {
 	r := newWorkspace(t, nil).run("pull", "01a120bd-0000-7000-8000-000000000000")
 	if r.code != 1 || !strings.Contains(r.stderr, "only reaches your own Pens") {
 		t.Errorf("code %d, stderr %q", r.code, r.stderr)
+	}
+}
+
+// An interrupted command exits 130, as shells report Ctrl-C, and stays quiet
+// instead of printing the cancellation as an error.
+func TestRun_Interrupted(t *testing.T) {
+	t.Parallel()
+	w, _ := connected(t, codepentest.Seed{Files: map[string]string{"a.js": "1"}})
+	w.write("a.js", "2")
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	var stdout, stderr bytes.Buffer
+	if code := Run(ctx, []string{"push"}, w.env(&stdout, &stderr)); code != 130 || stderr.Len() != 0 {
+		t.Errorf("push = exit %d, stderr %q; want 130 and nothing", code, stderr.String())
 	}
 }

@@ -42,13 +42,21 @@ func System() (Env, error) {
 	}, nil
 }
 
+// exitInterrupted is what shells report for a process stopped by Ctrl-C.
+const exitInterrupted = 130
+
 // Run executes the pen CLI with args (without the program name) and returns the exit
-// code: 0 success, 1 runtime or API error, 2 usage error.
+// code: 0 success, 1 runtime or API error, 2 usage error, 130 interrupted (ctx
+// done), which prints nothing.
 func Run(ctx context.Context, args []string, env Env) int {
 	if args == nil {
 		args = []string{} // nil would make Cobra read os.Args
 	}
 	root := newRoot(&app{env: env})
 	root.SetArgs(args)
-	return report(env, root.ExecuteContext(ctx))
+	err := root.ExecuteContext(ctx)
+	if ctx.Err() != nil {
+		return exitInterrupted
+	}
+	return report(env, err)
 }
