@@ -86,10 +86,16 @@ func (m *Mirror) Push(ctx context.Context, opts PushOptions) error {
 		expected = ""
 	}
 	build, err := m.cfg.API.WriteFiles(ctx, m.id, changes, expected)
-	if err != nil {
-		return err
+	if err == nil {
+		err = m.settle(ctx, build)
 	}
-	if err := m.settle(ctx, build); err != nil {
+	if err != nil {
+		// The write may have gone through, leaving the tracked head behind, so
+		// the next push fetches it again. A conflict is the exception: the head
+		// moved by someone else's edit, and pushes keep refusing until a pull.
+		if !errors.Is(err, codepen.ErrConflict) {
+			m.isTracking = false
+		}
 		return err
 	}
 	return m.writeBack(ctx, local)
