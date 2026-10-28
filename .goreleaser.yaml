@@ -10,7 +10,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X github.com/nocksock/codepen-cli/internal/cli.version={{ .Version }}
+      - -s -w -X github.com/nocksock/codepen-cli/internal/cli.version={{ .Tag }}
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
@@ -30,7 +30,9 @@ snapshot:
 # Release notes list the commits since the previous tag, enriched through the
 # GitHub compare API (so authors link to their account when GitHub knows their
 # email). Grouped by conventional-commit type, which the regexps match at the
-# start of the subject.
+# start of the subject; a commit lands in the first group that matches, so
+# breaking changes (type! or type(scope)!) are listed on their own. Merge
+# commits are left out: their branches' commits are listed already.
 #
 # The format is spelled out because goreleaser's default for `use: github` is
 # "{{ .SHA }}: {{ .Message }} (…)", and dropping the hash with `abbrev: -1`
@@ -38,12 +40,18 @@ snapshot:
 changelog:
   use: github
   format: '{{ .Message }}{{ with .Logins }} ({{ .Logins | englishJoin }}){{ end }}'
+  filters:
+    exclude:
+      - '^Merge '
   groups:
-    - title: Features
-      regexp: '^feat(\([[:word:]]+\))?!?:.+$'
+    - title: Breaking changes
+      regexp: '^[a-z]+(\([^)]+\))?!:.+$'
       order: 0
-    - title: Bug fixes
-      regexp: '^(fix|bug)(\([[:word:]]+\))?!?:.+$'
+    - title: Features
+      regexp: '^feat(\([^)]+\))?:.+$'
       order: 1
+    - title: Bug fixes
+      regexp: '^(fix|bug)(\([^)]+\))?:.+$'
+      order: 2
     - title: Others
       order: 999
