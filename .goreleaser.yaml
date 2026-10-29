@@ -39,7 +39,7 @@ snapshot:
 # leaves a stray ": " behind.
 changelog:
   use: github
-  format: '{{ .Message }}{{ with .Logins }} ({{ .Logins | englishJoin }}){{ end }}'
+  format: '{{ .Message }}{{ with .Logins }} ({{ . | englishJoin }}){{ end }}'
   filters:
     exclude:
       - '^Merge '
