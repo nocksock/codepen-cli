@@ -177,3 +177,9 @@ After a push, CodePen sometimes adjusts files: it adds a `tsconfig.json` or rewr
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): building, testing and releasing.
 - [API_OVERVIEW.md](API_OVERVIEW.md): what else the CodePen API can do.
+
+## How this was made
+
+Most of this code is generated. I used the project to try out how good the new generation of models is: mostly Opus 5.5, a bit of Fable, and some DeepSeek V4.1 Flash.
+
+I use `pen` daily, though, and it works very well for my use cases, some of which are prototyping with LLMs.
